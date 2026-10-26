@@ -94,8 +94,8 @@ function registerReviewView(context) {
 	});
 
 	// --- Controle de codigo-fonte: barras na margem do editor, lista no painel Ctrl+Shift+G ---
-	const rootUri = vscode.workspace.workspaceFolders?.[0]?.uri;
-	const scm = vscode.scm.createSourceControl(SCM_ID, 'Alterações do agente', rootUri);
+	// Sem pasta raiz: o nome na lista de repositorios e o do proprio painel, e a margem vale para qualquer arquivo
+	const scm = vscode.scm.createSourceControl(SCM_ID, 'Alterações do agente');
 	scm.inputBox.visible = false;
 	scm.quickDiffProvider = {
 		provideOriginalResource: uri => {
