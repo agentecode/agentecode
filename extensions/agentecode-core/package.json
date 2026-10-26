@@ -17,6 +17,7 @@
     "onCommand:agentecode.exportSessionToMarkdown",
     "onCommand:agentecode.undoLastRewind",
     "onCommand:agentecode.showReleaseNotes",
+    "onCommand:agentecode.usage.history",
     "onCommand:agentecode.sync.menu",
     "onCommand:agentecode.sync.connect",
     "onCommand:agentecode.sync.upload",
@@ -89,6 +90,12 @@
         "command": "agentecode.showReleaseNotes",
         "title": "Mostrar notas da versão",
         "category": "AgenteCode"
+      },
+      {
+        "command": "agentecode.usage.history",
+        "title": "Histórico de uso e custo",
+        "category": "AgenteCode",
+        "icon": "$(graph)"
       },
       {
         "command": "claudeUsageBar.refresh",
@@ -425,6 +432,11 @@
         }
       ],
       "view/title": [
+        {
+          "command": "agentecode.usage.history",
+          "when": "view == claudeUsageBar.panel",
+          "group": "navigation@1"
+        },
         {
           "command": "agentecode.sessions.search",
           "when": "view == agentecode.sessions",
