@@ -148,6 +148,12 @@
         "category": "AgenteCode"
       },
       {
+        "command": "agentecode.review.chooseBase",
+        "title": "Comparar alterações com o estado de antes de um turno",
+        "category": "AgenteCode",
+        "icon": "$(git-compare)"
+      },
+      {
         "command": "agentecode.usage.history",
         "title": "Histórico de uso e custo",
         "category": "AgenteCode",
@@ -508,7 +514,51 @@
           "when": "agentecode.usage.enabled"
         }
       ],
+      "scm/title": [
+        {
+          "command": "agentecode.review.chooseBase",
+          "when": "scmProvider == agentecode-review",
+          "group": "navigation@1"
+        },
+        {
+          "command": "agentecode.review.keepAll",
+          "when": "scmProvider == agentecode-review",
+          "group": "navigation@2"
+        },
+        {
+          "command": "agentecode.review.refresh",
+          "when": "scmProvider == agentecode-review",
+          "group": "navigation@3"
+        },
+        {
+          "command": "agentecode.review.chooseSession",
+          "when": "scmProvider == agentecode-review",
+          "group": "1_review@1"
+        },
+        {
+          "command": "agentecode.review.revertAll",
+          "when": "scmProvider == agentecode-review",
+          "group": "1_review@2"
+        }
+      ],
+      "scm/resourceState/context": [
+        {
+          "command": "agentecode.review.keep",
+          "when": "scmProvider == agentecode-review && scmResourceGroup == changes",
+          "group": "inline@1"
+        },
+        {
+          "command": "agentecode.review.revert",
+          "when": "scmProvider == agentecode-review && scmResourceGroup == changes",
+          "group": "inline@2"
+        }
+      ],
       "view/title": [
+        {
+          "command": "agentecode.review.chooseBase",
+          "when": "view == agentecode.review",
+          "group": "navigation@0"
+        },
         {
           "command": "agentecode.review.chooseSession",
           "when": "view == agentecode.review",

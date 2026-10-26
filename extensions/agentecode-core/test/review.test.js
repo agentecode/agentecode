@@ -115,6 +115,36 @@ describe('Revisao do que o agente mudou', () => {
 		assert.equal(result.outside, 0);
 	});
 
+	test('a base pode ser um turno: so aparece o que mudou desde ele', async () => {
+		const history = path.join(base, 'claude', 'file-history', 'turn-session');
+		fs.mkdirSync(history, { recursive: true });
+		fs.writeFileSync(path.join(history, 'f1@v1'), 'a\n');
+		fs.writeFileSync(path.join(history, 'f2@v2'), 'b\nb2\n');
+		const one = path.join(project, 't1.js');
+		const two = path.join(project, 't2.js');
+		fs.writeFileSync(one, 'a\nnovo\n');
+		fs.writeFileSync(two, 'b\nb2\nb3\n');
+		const file = path.join(base, 'claude', 'projects', 'p', 'turn-session.jsonl');
+		const user = (uuid, text) => JSON.stringify({ type: 'user', uuid, timestamp: '2026-10-26T10:00:00Z', message: { content: text } });
+		fs.writeFileSync(file, [
+			user('t1', 'primeiro pedido'),
+			JSON.stringify({ type: 'file-history-snapshot', messageId: 't1', snapshot: { messageId: 't1', trackedFileBackups: { [one]: { backupFileName: 'f1@v1' } } } }),
+			user('t2', 'segundo pedido'),
+			JSON.stringify({ type: 'file-history-snapshot', messageId: 't2', snapshot: { messageId: 't2', trackedFileBackups: { [one]: { backupFileName: 'f1@v1' }, [two]: { backupFileName: 'f2@v2' } } } })
+		].join('\n') + '\n');
+
+		const session = { file, id: 'turn-session' };
+		const whole = await review.computeReview(session, [project]);
+		assert.deepEqual(whole.items.map(i => path.basename(i.file)), ['t1.js', 't2.js']);
+
+		const fromSecond = await review.computeReview(session, [project], { baseMessageId: 't2' });
+		assert.equal(fromSecond.firstMessageId, 't2');
+		assert.deepEqual(fromSecond.items.map(i => [path.basename(i.file), i.added]), [['t1.js', 1], ['t2.js', 1]]);
+
+		const bases = await review.listBases(file);
+		assert.deepEqual(bases.map(b => [b.messageId, b.prompt]), [['t2', 'segundo pedido'], ['t1', 'primeiro pedido']]);
+	});
+
 	test('sessao sem checkpoints nao tem alteracoes', async () => {
 		const empty = path.join(base, 'claude', 'projects', 'p', 'vazia.jsonl');
 		fs.writeFileSync(empty, JSON.stringify({ type: 'user', uuid: 'u1', message: { content: 'oi' } }) + '\n');

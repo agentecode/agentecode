@@ -10,7 +10,7 @@
 
 const crypto = require('crypto');
 const { readEntries } = require('./sessionMarkdown');
-const { collectSnapshots, planRewind, absolutizePlan, isInsideAny } = require('./checkpoints');
+const { collectSnapshots, listCheckpoints, planRewind, absolutizePlan, isInsideAny } = require('./checkpoints');
 const { readIfExists, diffPlanAgainstDisk } = require('./rewindPlan');
 
 /** Acima disto (por arquivo) nao se contam linhas: o diff do editor continua funcionando. */
@@ -89,11 +89,13 @@ async function fingerprint(file) {
  * Arquivos que o agente mudou na conversa, comparando o estado de antes da primeira edicao com o disco.
  * @param {{ file: string, id: string, cwd?: string }} session
  * @param {string[]} roots Pastas do projeto; arquivos fora delas sao ignorados
+ * @param {{ baseMessageId?: string }} [options] `baseMessageId`: compara com o estado de antes deste turno (padrao: inicio da conversa)
  * @returns {Promise<{ firstMessageId: string | undefined, items: { file: string, status: 'modified' | 'added' | 'deleted', backup?: string, added: number | null, removed: number | null }[], missingBackups: number, outside: number }>}
  */
-async function computeReview(session, roots) {
+async function computeReview(session, roots, options = {}) {
 	const entries = await readHistoryEntries(session.file);
-	const first = collectSnapshots(entries)[0];
+	const snapshots = collectSnapshots(entries);
+	const first = (options.baseMessageId && snapshots.find(s => s.messageId === options.baseMessageId)) || snapshots[0];
 	if (!first) {
 		return { firstMessageId: undefined, items: [], missingBackups: 0, outside: 0 };
 	}
@@ -140,4 +142,27 @@ async function splitReviewed(items, reviewed, fingerprintOf = fingerprint) {
 	return { pending, hidden };
 }
 
-module.exports = { readHistoryEntries, countLineChanges, fingerprint, computeReview, splitReviewed };
+/** Reduz um prompt do usuario ao texto, para nao guardar imagens em base64 na memoria. */
+function slimUser(entry) {
+	const content = entry.message?.content;
+	let text = '';
+	if (typeof content === 'string') {
+		text = content;
+	} else if (Array.isArray(content) && !content.some(b => b?.type === 'tool_result')) {
+		text = content.filter(b => b?.type === 'text').map(b => b.text).join('\n');
+	}
+	return { type: 'user', uuid: entry.uuid, isMeta: entry.isMeta, isSidechain: entry.isSidechain, timestamp: entry.timestamp, message: { content: text } };
+}
+
+/**
+ * Turnos da conversa que podem servir de ponto de comparacao (os que tem arquivos rastreados), do mais novo ao mais antigo.
+ * @param {string} sessionFile
+ * @returns {Promise<{ messageId: string, prompt: string, timestamp?: string }[]>}
+ */
+async function listBases(sessionFile) {
+	const entries = [];
+	await readEntries(sessionFile, entry => entries.push(entry.type === 'user' ? slimUser(entry) : entry), line => line.includes('"type":"user"') || line.includes('"type":"file-history-'));
+	return listCheckpoints(entries).filter(c => planRewind(entries, c.messageId)?.length);
+}
+
+module.exports = { listBases, readHistoryEntries, countLineChanges, fingerprint, computeReview, splitReviewed };
