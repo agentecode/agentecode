@@ -67,6 +67,7 @@
     "terminal.foreground": "#e2edf5",
     "terminal.ansiBlack": "#001a2d",
     "terminal.ansiRed": "#ff6b6b",
+    "editorCodeLens.foreground": "#3cdbc0",
     "terminal.ansiGreen": "#3cdbc0",
     "terminal.ansiYellow": "#f3ca68",
     "terminal.ansiBlue": "#5cb7f8",
