@@ -533,7 +533,7 @@ const barRow = (title, percent, note, color, ramp, baseWhenNone) => {
     const tint = c && (color || percent >= ramp.amber) ? ` style="color:${cssColor(c)}"` : '';
     return (
       `<div class="row"><div class="top"><span${tint}>${esc(title)}</span><span${tint}>${percent}%</span></div>` +
-      `<div class="track"><div class="fill" style="background:${c ? cssColor(c) : 'var(--vscode-charts-blue)'};width:${Math.min(100, Math.max(0, percent))}%"></div></div>` +
+      `<div class="track"><div class="fill" style="background:${c ? cssColor(c) : 'var(--vscode-charts-green)'};width:${Math.min(100, Math.max(0, percent))}%"></div></div>` +
       `<div class="sub">${esc(note)}</div></div>`
     );
   }

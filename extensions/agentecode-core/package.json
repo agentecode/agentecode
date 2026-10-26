@@ -246,13 +246,13 @@
         },
         "claudeUsageBar.colorSession5h": {
           "type": "string",
-          "default": "charts.blue",
-          "description": "Cor do limite de 5h na barra e no painel: id de cor do tema (charts.blue, acompanha o tema) ou hexadecimal (#7fbbb3). Vazio = cor padrão da barra."
+          "default": "charts.green",
+          "description": "Cor do limite de 5h na barra e no painel: id de cor do tema (charts.green, acompanha o tema) ou hexadecimal (#7fbbb3). Vazio = cor padrão da barra."
         },
         "claudeUsageBar.colorWeekly7d": {
           "type": "string",
-          "default": "charts.blue",
-          "description": "Cor-base do limite de 7d na barra e no painel (até o degradê começar): id de cor do tema (charts.blue, acompanha o tema) ou hexadecimal (#7fbbb3). Vazio = cor padrão da barra."
+          "default": "charts.green",
+          "description": "Cor-base do limite de 7d na barra e no painel (até o degradê começar): id de cor do tema (charts.green, acompanha o tema) ou hexadecimal (#7fbbb3). Vazio = cor padrão da barra."
         },
         "claudeUsageBar.refreshLimits": {
           "type": "boolean",
