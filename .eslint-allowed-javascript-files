@@ -205,3 +205,6 @@ extensions/agentecode-core/lib/reviewView.js
 extensions/agentecode-core/test/review.test.js
 extensions/agentecode-core/lib/reviewHunks.js
 extensions/agentecode-core/test/reviewHunks.test.js
+extensions/agentecode-core/lib/reviewPanelLib.js
+extensions/agentecode-core/lib/reviewPanelHtml.js
+extensions/agentecode-core/test/reviewPanel.test.js

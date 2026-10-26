@@ -2,6 +2,17 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.8 - 26/10/2026
+
+Revisão do que o agente mudou, direto no editor: botões Manter e Desfazer em cada trecho.
+
+- **Botões dentro do código:** acima de cada trecho que o agente alterou aparecem **Manter** (verde) e **Desfazer** (vermelho), com as linhas acrescentadas e removidas ao lado. **Desfazer** volta só aquele pedaço e salva o arquivo (o Ctrl+Z também funciona). Com o cursor no trecho, **Alt+Y** mantém e **Alt+N** desfaz. Os números abrem o diff "antes ↔ agora".
+- **Tela "Alterações do agente" renovada:** na barra lateral das Sessões do agente, com o resumo `N arquivos +X −Y`, os botões **Aceitar tudo** e **Descartar tudo**, selo de linguagem, etiqueta NOVO e EXCLUÍDO e números coloridos. A seta de cada arquivo mostra os trechos, e um clique leva até a linha. Quem preferir a lista simples de antes usa `agentecode.review.panel: tree`.
+- **Margem do editor e Explorer:** os arquivos que o agente mudou ganham barras coloridas na margem (comparadas com o estado de antes da conversa) e a marca "IA" no Explorer. As alterações também aparecem como "Alterações do agente" no painel de código-fonte (Ctrl+Shift+G), onde basta marcar o repositório uma vez na lista de repositórios.
+- **Comparar por turno:** é possível escolher com o que comparar: o início da conversa, antes da última resposta ou antes de um pedido específico.
+- **Cores de destaque:** os quatro temas do AgenteCode passaram a ter uma cor de destaque para essas linhas do editor.
+- O que foi feito por comandos de terminal continua não aparecendo, e se você mesmo editar o arquivo depois do agente, o **Voltar** também desfaz a sua edição (a tela avisa antes de confirmar).
+
 ## v1.0.7 - 26/10/2026
 
 Revisão do que o agente mudou, histórico de uso e custo e sincronização da configuração do Claude.

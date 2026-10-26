@@ -2,7 +2,7 @@
   "name": "agentecode-core",
   "displayName": "AgenteCode Core",
   "description": "Recursos próprios do AgenteCode: histórico de sessões do agente, volta de arquivos (checkpoint), exportação para Markdown e notas de versão.",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "publisher": "agentecode",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -29,7 +29,8 @@
     "onCommand:agentecode.sync.disconnect",
     "onCommand:agentecode.sync.guide",
     "onView:agentecode.sessions",
-    "onView:agentecode.review"
+    "onView:agentecode.review",
+    "onView:agentecode.reviewPanel"
   ],
   "main": "./extension.js",
   "capabilities": {
@@ -424,6 +425,19 @@
           "default": true,
           "description": "Inclui a lista de extensões instaladas pelo usuário na sincronização."
         },
+        "agentecode.review.panel": {
+          "type": "string",
+          "enum": [
+            "webview",
+            "tree"
+          ],
+          "enumDescriptions": [
+            "Tela própria, com botões Aceitar e Descartar, selos, números coloridos e trechos expansíveis.",
+            "Lista nativa do VS Code (mais simples)."
+          ],
+          "default": "webview",
+          "description": "Como a lista \"Alterações do agente\" é desenhada na barra lateral."
+        },
         "agentecode.review.inlineHint": {
           "type": "boolean",
           "default": false,
@@ -466,9 +480,17 @@
           "icon": "media/sessions.svg"
         },
         {
+          "type": "webview",
+          "id": "agentecode.reviewPanel",
+          "name": "Alterações do agente",
+          "icon": "media/sessions.svg",
+          "when": "config.agentecode.review.panel != 'tree'"
+        },
+        {
           "id": "agentecode.review",
           "name": "Alterações do agente",
-          "icon": "media/sessions.svg"
+          "icon": "media/sessions.svg",
+          "when": "config.agentecode.review.panel == 'tree'"
         }
       ],
       "claudeUsage": [

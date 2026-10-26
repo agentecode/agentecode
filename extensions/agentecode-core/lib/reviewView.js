@@ -10,12 +10,15 @@ const fs = require('fs');
 const path = require('path');
 const { computeReview, splitReviewed, fingerprint, listBases } = require('./review');
 const { computeHunks, revertHunkInText } = require('./reviewHunks');
+const { languageBadge } = require('./reviewPanelLib');
+const { renderPanelHtml } = require('./reviewPanelHtml');
 const { isInsideAny, BACKUP_NAME } = require('./checkpoints');
 const { listSessions, fileHistoryDir } = require('./sessionStore');
 const { applyChange } = require('./rewindPlan');
 const { rewindToCheckpoint, undoLastRewind, saveUndoPoint } = require('./rewind');
 
 const VIEW_ID = 'agentecode.review';
+const PANEL_ID = 'agentecode.reviewPanel';
 const SCM_ID = 'agentecode-review';
 const SCHEME = 'agentecode-review';
 const REVIEWED_KEY = 'agentecode.review.reviewed';
@@ -256,6 +259,159 @@ function registerReviewView(context) {
 		return all.find(s => s.size > 0);
 	}
 
+
+	// --- Tela "Alteracoes do agente" em webview (botoes, selos, numeros coloridos e trechos expansiveis) ---
+	/** @type {Set<string>} arquivos com a lista de trechos aberta */
+	const expanded = new Set();
+	/** @type {vscode.WebviewView | undefined} */
+	let panelView;
+
+	async function buildPanelState() {
+		const items = review ? (showReviewed ? review.all : review.pending) : [];
+		const pending = review ? review.pending : [];
+		const pendingKeys = new Set(pending.map(i => keyOf(i.file)));
+		const sum = key => pending.reduce((total, item) => total + (item[key] ?? 0), 0);
+		const rows = [];
+		for (const item of items) {
+			const key = keyOf(item.file);
+			const root = roots().find(r => isInsideAny(item.file, [r]));
+			const relDir = root ? path.dirname(path.relative(root, item.file)) : path.dirname(item.file);
+			const row = {
+				file: item.file,
+				name: path.basename(item.file),
+				dir: relDir === '.' ? '' : relDir,
+				status: item.status,
+				added: item.added,
+				removed: item.removed,
+				badge: languageBadge(item.file),
+				reviewed: !pendingKeys.has(key),
+				expanded: expanded.has(key)
+			};
+			if (row.expanded && item.status === 'modified') {
+				try {
+					const text = await fs.promises.readFile(item.file, 'utf8');
+					row.hunks = (await pendingHunks(item, text)).map(h => ({ key: h.key, line: h.modStart + 1, added: h.afterLines.length, removed: h.beforeLines.length }));
+				} catch {
+					row.hunks = [];
+				}
+			}
+			rows.push(row);
+		}
+		let emptyText = '';
+		if (!session) {
+			emptyText = 'Nenhuma conversa do agente encontrada para esta pasta.';
+		} else if (!review || !review.firstMessageId) {
+			emptyText = 'Esta conversa ainda não alterou arquivos.';
+		} else if (!rows.length) {
+			emptyText = hidden ? `Tudo revisado (${hidden}).` : 'Nenhuma diferença: os arquivos estão como antes.';
+		}
+		return {
+			conversation: session ? (session.title ?? session.id) : '',
+			base: base ? `antes de "${base.prompt.slice(0, 40)}"` : 'o início da conversa',
+			totals: { files: pending.length, added: sum('added'), removed: sum('removed') },
+			hiddenReviewed: hidden,
+			showReviewed,
+			items: rows,
+			emptyText
+		};
+	}
+
+	async function postPanel() {
+		if (!panelView) {
+			return;
+		}
+		try {
+			await panelView.webview.postMessage({ type: 'state', state: await buildPanelState() });
+		} catch {
+			// a tela pode ter sido fechada no meio
+		}
+	}
+
+	const itemOf = file => (review ? review.all.find(i => keyOf(i.file) === keyOf(file)) : undefined);
+
+	async function handlePanelMessage(message) {
+		const item = message.file ? itemOf(message.file) : undefined;
+		switch (message.type) {
+			case 'ready':
+			case 'refresh':
+				await reload();
+				await postPanel();
+				break;
+			case 'open':
+				if (item) {
+					await vscode.commands.executeCommand('agentecode.review.open', item);
+				}
+				break;
+			case 'toggle':
+				if (item) {
+					const key = keyOf(item.file);
+					if (!expanded.delete(key)) {
+						expanded.add(key);
+					}
+					await postPanel();
+				}
+				break;
+			case 'keep':
+				if (item) {
+					await vscode.commands.executeCommand('agentecode.review.keep', item);
+				}
+				break;
+			case 'revert':
+				if (item) {
+					await vscode.commands.executeCommand('agentecode.review.revert', item);
+				}
+				break;
+			case 'keepHunk':
+			case 'undoHunk':
+				if (item) {
+					await vscode.commands.executeCommand(`agentecode.review.${message.type}`, vscode.Uri.file(item.file).toString(), message.key);
+					await postPanel();
+				}
+				break;
+			case 'goto':
+				if (item) {
+					const line = Math.max(0, (message.line ?? 1) - 1);
+					await vscode.window.showTextDocument(vscode.Uri.file(item.file), { selection: new vscode.Range(line, 0, line, 0), preview: false });
+				}
+				break;
+			case 'keepAll':
+				await vscode.commands.executeCommand('agentecode.review.keepAll');
+				break;
+			case 'revertAll':
+				await vscode.commands.executeCommand('agentecode.review.revertAll');
+				break;
+			case 'chooseBase':
+				await vscode.commands.executeCommand('agentecode.review.chooseBase');
+				break;
+			case 'chooseSession':
+				await vscode.commands.executeCommand('agentecode.review.chooseSession');
+				break;
+			case 'toggleReviewed':
+				await vscode.commands.executeCommand('agentecode.review.toggleReviewed');
+				break;
+		}
+	}
+
+	context.subscriptions.push(vscode.window.registerWebviewViewProvider(PANEL_ID, {
+		resolveWebviewView(webviewView) {
+			panelView = webviewView;
+			webviewView.webview.options = { enableScripts: true };
+			const nonce = Math.random().toString(36).slice(2) + Date.now().toString(36);
+			webviewView.webview.html = renderPanelHtml({ nonce, cspSource: webviewView.webview.cspSource });
+			webviewView.webview.onDidReceiveMessage(message => void handlePanelMessage(message));
+			webviewView.onDidChangeVisibility(() => {
+				if (webviewView.visible) {
+					void reload();
+				}
+			});
+			webviewView.onDidDispose(() => {
+				if (panelView === webviewView) {
+					panelView = undefined;
+				}
+			});
+		}
+	}, { webviewOptions: { retainContextWhenHidden: true } }));
+
 	/** Recalcula as alteracoes e atualiza arvore, painel de codigo-fonte, margem do editor e Explorer. */
 	async function reload() {
 		if (loading) {
@@ -312,6 +468,7 @@ function registerReviewView(context) {
 				decorationEmitter.fire([...previous, ...pendingNow.map(i => i.file)].map(f => vscode.Uri.file(f)));
 				treeEmitter.fire(undefined);
 				lensEmitter.fire();
+				void postPanel();
 			} catch (error) {
 				review = undefined;
 				view.message = `Não foi possível ler as alterações: ${error && error.message ? error.message : error}`;
@@ -494,6 +651,7 @@ function registerReviewView(context) {
 			showReviewed = !showReviewed;
 			void vscode.window.showInformationMessage(showReviewed ? 'Mostrando também os arquivos já revisados na lista lateral.' : 'Ocultando os arquivos já revisados.');
 			treeEmitter.fire(undefined);
+			void postPanel();
 		}),
 
 		vscode.commands.registerCommand('agentecode.review.clearReviewed', async () => {
@@ -543,7 +701,7 @@ function registerReviewView(context) {
 				pinned = true;
 				base = undefined;
 				void reload();
-				void vscode.commands.executeCommand(`${VIEW_ID}.focus`);
+				void vscode.commands.executeCommand(vscode.workspace.getConfiguration('agentecode.review').get('panel', 'webview') === 'tree' ? `${VIEW_ID}.focus` : `${PANEL_ID}.focus`);
 			}
 		}),
 
