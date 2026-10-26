@@ -9,6 +9,7 @@ const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
 const { computeReview, splitReviewed, fingerprint, listBases } = require('./review');
+const { computeHunks, revertHunkInText } = require('./reviewHunks');
 const { isInsideAny, BACKUP_NAME } = require('./checkpoints');
 const { listSessions, fileHistoryDir } = require('./sessionStore');
 const { applyChange } = require('./rewindPlan');
@@ -18,6 +19,8 @@ const VIEW_ID = 'agentecode.review';
 const SCM_ID = 'agentecode-review';
 const SCHEME = 'agentecode-review';
 const REVIEWED_KEY = 'agentecode.review.reviewed';
+const KEPT_HUNKS_KEY = 'agentecode.review.keptHunks';
+const MAX_LENS_CHARS = 1024 * 1024;
 const REFRESH_MS = 15000;
 const EMPTY = 'none';
 
@@ -114,9 +117,67 @@ function registerReviewView(context) {
 			: undefined)
 	};
 
+	// --- Manter / Desfazer por trecho, dentro do proprio arquivo (CodeLens acima de cada trecho alterado) ---
+	const lensEmitter = new vscode.EventEmitter();
+	/** @type {Map<string, string>} copias de antes ja lidas (nunca mudam) */
+	const backupTexts = new Map();
+	const keptMap = () => context.workspaceState.get(KEPT_HUNKS_KEY, {});
+
+	const readBackupText = async item => {
+		if (!item.backup) {
+			return '';
+		}
+		let text = backupTexts.get(item.backup);
+		if (text === undefined) {
+			text = await fs.promises.readFile(item.backup, 'utf8').catch(() => '');
+			backupTexts.set(item.backup, text);
+		}
+		return text;
+	};
+
+	/** Trechos ainda nao mantidos de um arquivo, comparando o texto atual do editor com a copia de antes. */
+	const pendingHunks = async (item, text) => {
+		const kept = new Set(keptMap()[item.file] ?? []);
+		return computeHunks(await readBackupText(item), text).filter(h => !kept.has(h.key));
+	};
+
+	const lensProvider = {
+		onDidChangeCodeLenses: lensEmitter.event,
+		provideCodeLenses: async document => {
+			if (!vscode.workspace.getConfiguration('agentecode.review').get('codeLens', true)) {
+				return [];
+			}
+			const item = pendingByKey.get(keyOf(document.uri.fsPath));
+			if (!item || item.status === 'deleted' || document.getText().length > MAX_LENS_CHARS) {
+				return [];
+			}
+			const hunks = await pendingHunks(item, document.getText());
+			if (item.status === 'added') {
+				if (!hunks.length) {
+					return [];
+				}
+				const top = new vscode.Range(0, 0, 0, 0);
+				return [
+					new vscode.CodeLens(top, { title: '$(check) Manter arquivo novo', command: 'agentecode.review.keep', arguments: [item] }),
+					new vscode.CodeLens(top, { title: '$(trash) Excluir', command: 'agentecode.review.revert', arguments: [item] })
+				];
+			}
+			return hunks.flatMap(hunk => {
+				const line = Math.min(hunk.modStart, Math.max(0, document.lineCount - 1));
+				const range = new vscode.Range(line, 0, line, 0);
+				return [
+					new vscode.CodeLens(range, { title: '$(check) Manter', command: 'agentecode.review.keepHunk', arguments: [document.uri, hunk.key] }),
+					new vscode.CodeLens(range, { title: '$(discard) Desfazer', command: 'agentecode.review.undoHunk', arguments: [document.uri, hunk.key] }),
+					new vscode.CodeLens(range, { title: `$(diff) +${hunk.afterLines.length} −${hunk.beforeLines.length}`, command: 'agentecode.review.open', arguments: [item] })
+				];
+			});
+		}
+	};
+
 	context.subscriptions.push(
-		view, treeEmitter, decorationEmitter, scm, scmGroup,
+		view, treeEmitter, decorationEmitter, lensEmitter, scm, scmGroup,
 		vscode.window.registerFileDecorationProvider(decorations),
+		vscode.languages.registerCodeLensProvider({ scheme: 'file' }, lensProvider),
 		vscode.workspace.registerTextDocumentContentProvider(SCHEME, new BackupContentProvider())
 	);
 
@@ -178,6 +239,7 @@ function registerReviewView(context) {
 				}));
 				decorationEmitter.fire([...previous, ...pendingNow.map(i => i.file)].map(f => vscode.Uri.file(f)));
 				treeEmitter.fire(undefined);
+				lensEmitter.fire();
 			} catch (error) {
 				review = undefined;
 				view.message = `Não foi possível ler as alterações: ${error && error.message ? error.message : error}`;
@@ -264,6 +326,56 @@ function registerReviewView(context) {
 			if (targets.length) {
 				await markReviewed(targets.map(t => t.file));
 			}
+		}),
+
+		vscode.commands.registerCommand('agentecode.review.keepHunk', async (uri, key) => {
+			const item = pendingByKey.get(keyOf(uri.fsPath));
+			if (!item) {
+				return;
+			}
+			const map = { ...keptMap() };
+			map[item.file] = [...new Set([...(map[item.file] ?? []), key])];
+			await context.workspaceState.update(KEPT_HUNKS_KEY, map);
+			const document = await vscode.workspace.openTextDocument(uri);
+			// Sem trechos pendentes, o arquivo inteiro conta como revisado
+			if (!(await pendingHunks(item, document.getText())).length) {
+				await markReviewed([item.file]);
+			} else {
+				lensEmitter.fire();
+			}
+		}),
+
+		vscode.commands.registerCommand('agentecode.review.undoHunk', async (uri, key) => {
+			const item = pendingByKey.get(keyOf(uri.fsPath));
+			if (!item) {
+				return;
+			}
+			const document = await vscode.workspace.openTextDocument(uri);
+			const current = document.getText();
+			const hunk = computeHunks(await readBackupText(item), current).find(h => h.key === key);
+			if (!hunk) {
+				void vscode.window.showInformationMessage('Este trecho mudou desde que a lista foi calculada. Atualize e tente de novo.');
+				lensEmitter.fire();
+				return;
+			}
+			// Edicao minima: troca so o pedaco que difere, para preservar cursor, dobras e historico de desfazer (Ctrl+Z)
+			const reverted = revertHunkInText(current, hunk);
+			let start = 0;
+			while (start < current.length && start < reverted.length && current[start] === reverted[start]) {
+				start++;
+			}
+			let tail = 0;
+			while (tail < current.length - start && tail < reverted.length - start && current[current.length - 1 - tail] === reverted[reverted.length - 1 - tail]) {
+				tail++;
+			}
+			const edit = new vscode.WorkspaceEdit();
+			edit.replace(uri, new vscode.Range(document.positionAt(start), document.positionAt(current.length - tail)), reverted.slice(start, reverted.length - tail));
+			const wasDirty = document.isDirty;
+			await vscode.workspace.applyEdit(edit);
+			if (!wasDirty) {
+				await document.save();
+			}
+			await reload();
 		}),
 
 		vscode.commands.registerCommand('agentecode.review.keepAll', async () => {

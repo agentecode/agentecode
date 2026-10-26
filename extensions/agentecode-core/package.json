@@ -411,6 +411,11 @@
           "default": true,
           "description": "Inclui a lista de extensões instaladas pelo usuário na sincronização."
         },
+        "agentecode.review.codeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "Mostra Manter e Desfazer acima de cada trecho que o agente alterou, dentro do arquivo."
+        },
         "agentecode.sync.syncClaudeConfig": {
           "type": "boolean",
           "default": false,
