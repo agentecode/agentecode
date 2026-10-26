@@ -8,18 +8,11 @@
 const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
-const { readEntries } = require('./sessionMarkdown');
-const { planRewind, isInsideAny } = require('./checkpoints');
+const { planRewind, absolutizePlan, isInsideAny } = require('./checkpoints');
 const { readIfExists, diffPlanAgainstDisk, applyChange } = require('./rewindPlan');
+const { readHistoryEntries } = require('./review');
 
 const KEEP_UNDO_POINTS = 5;
-
-/** Entradas de checkpoint (snapshots e deltas) de uma sessao. */
-async function readHistoryEntries(file) {
-	const entries = [];
-	await readEntries(file, entry => entries.push(entry), line => line.includes('"type":"file-history-'));
-	return entries;
-}
 
 const ACTION_LABEL = {
 	restore: 'volta à versão anterior',
@@ -101,8 +94,8 @@ async function saveUndoPoint(context, label, changes) {
  */
 async function rewindToCheckpoint(context, session, checkpoint) {
 	const entries = await readHistoryEntries(session.file);
-	const plan = planRewind(entries, checkpoint.messageId);
-	if (!plan?.length) {
+	const rawPlan = planRewind(entries, checkpoint.messageId);
+	if (!rawPlan?.length) {
 		void vscode.window.showInformationMessage('Este ponto não tem arquivos rastreados para voltar.');
 		return;
 	}
@@ -111,6 +104,7 @@ async function rewindToCheckpoint(context, session, checkpoint) {
 	if (!roots.length && session.cwd) {
 		roots.push(session.cwd);
 	}
+	const plan = absolutizePlan(rawPlan, session.cwd ?? roots[0]);
 	const inside = plan.filter(p => isInsideAny(p.file, roots));
 	const outside = plan.length - inside.length;
 
@@ -210,4 +204,4 @@ async function undoLastRewind(context) {
 		: `Volta desfeita: ${manifest.items.length} arquivo(s) estão como antes.`);
 }
 
-module.exports = { rewindToCheckpoint, undoLastRewind };
+module.exports = { rewindToCheckpoint, undoLastRewind, saveUndoPoint };

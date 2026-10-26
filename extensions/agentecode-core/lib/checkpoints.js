@@ -138,4 +138,13 @@ function isInsideAny(file, roots) {
 	});
 }
 
-module.exports = { collectSnapshots, listCheckpoints, planRewind, isInsideAny, BACKUP_NAME };
+/**
+ * O Claude Code grava arquivos da pasta da conversa com caminho relativo a ela; aqui eles viram absolutos.
+ * @param {{ file: string, backupFileName: string | null }[]} plan
+ * @param {string | undefined} cwd Pasta da conversa
+ */
+function absolutizePlan(plan, cwd) {
+	return plan.map(item => (cwd && !path.isAbsolute(item.file) ? { ...item, file: path.resolve(cwd, item.file) } : item));
+}
+
+module.exports = { collectSnapshots, listCheckpoints, planRewind, absolutizePlan, isInsideAny, BACKUP_NAME };

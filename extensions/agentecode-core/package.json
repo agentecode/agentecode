@@ -28,7 +28,8 @@
     "onCommand:agentecode.sync.undoLast",
     "onCommand:agentecode.sync.disconnect",
     "onCommand:agentecode.sync.guide",
-    "onView:agentecode.sessions"
+    "onView:agentecode.sessions",
+    "onView:agentecode.review"
   ],
   "main": "./extension.js",
   "capabilities": {
@@ -89,6 +90,61 @@
       {
         "command": "agentecode.showReleaseNotes",
         "title": "Mostrar notas da versão",
+        "category": "AgenteCode"
+      },
+      {
+        "command": "agentecode.review.refresh",
+        "title": "Atualizar alterações do agente",
+        "category": "AgenteCode",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "agentecode.review.open",
+        "title": "Ver diferença",
+        "category": "AgenteCode"
+      },
+      {
+        "command": "agentecode.review.keep",
+        "title": "Marcar como revisado",
+        "category": "AgenteCode",
+        "icon": "$(check)"
+      },
+      {
+        "command": "agentecode.review.keepAll",
+        "title": "Marcar tudo como revisado",
+        "category": "AgenteCode",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "agentecode.review.revert",
+        "title": "Voltar este arquivo para antes da conversa",
+        "category": "AgenteCode",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "agentecode.review.revertAll",
+        "title": "Voltar todos os arquivos para antes da conversa",
+        "category": "AgenteCode"
+      },
+      {
+        "command": "agentecode.review.toggleReviewed",
+        "title": "Mostrar ou ocultar arquivos já revisados",
+        "category": "AgenteCode"
+      },
+      {
+        "command": "agentecode.review.clearReviewed",
+        "title": "Limpar a lista de revisados",
+        "category": "AgenteCode"
+      },
+      {
+        "command": "agentecode.review.chooseSession",
+        "title": "Escolher a conversa a revisar",
+        "category": "AgenteCode",
+        "icon": "$(history)"
+      },
+      {
+        "command": "agentecode.review.forSession",
+        "title": "Revisar alterações desta conversa",
         "category": "AgenteCode"
       },
       {
@@ -379,6 +435,11 @@
           "id": "agentecode.sessions",
           "name": "Histórico de sessões",
           "icon": "media/sessions.svg"
+        },
+        {
+          "id": "agentecode.review",
+          "name": "Alterações do agente",
+          "icon": "media/sessions.svg"
         }
       ],
       "claudeUsage": [
@@ -398,6 +459,22 @@
     ],
     "menus": {
       "commandPalette": [
+        {
+          "command": "agentecode.review.open",
+          "when": "false"
+        },
+        {
+          "command": "agentecode.review.keep",
+          "when": "false"
+        },
+        {
+          "command": "agentecode.review.revert",
+          "when": "false"
+        },
+        {
+          "command": "agentecode.review.forSession",
+          "when": "false"
+        },
         {
           "command": "agentecode.sessions.resume",
           "when": "false"
@@ -433,6 +510,36 @@
       ],
       "view/title": [
         {
+          "command": "agentecode.review.chooseSession",
+          "when": "view == agentecode.review",
+          "group": "navigation@1"
+        },
+        {
+          "command": "agentecode.review.keepAll",
+          "when": "view == agentecode.review",
+          "group": "navigation@2"
+        },
+        {
+          "command": "agentecode.review.refresh",
+          "when": "view == agentecode.review",
+          "group": "navigation@3"
+        },
+        {
+          "command": "agentecode.review.revertAll",
+          "when": "view == agentecode.review",
+          "group": "1_review@1"
+        },
+        {
+          "command": "agentecode.review.toggleReviewed",
+          "when": "view == agentecode.review",
+          "group": "1_review@2"
+        },
+        {
+          "command": "agentecode.review.clearReviewed",
+          "when": "view == agentecode.review",
+          "group": "1_review@3"
+        },
+        {
           "command": "agentecode.usage.history",
           "when": "view == claudeUsageBar.panel",
           "group": "navigation@1"
@@ -454,6 +561,21 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "agentecode.review.keep",
+          "when": "view == agentecode.review && viewItem == reviewFile",
+          "group": "inline@1"
+        },
+        {
+          "command": "agentecode.review.revert",
+          "when": "view == agentecode.review && viewItem == reviewFile",
+          "group": "inline@2"
+        },
+        {
+          "command": "agentecode.review.forSession",
+          "when": "view == agentecode.sessions && viewItem == session",
+          "group": "2_review@1"
+        },
         {
           "command": "agentecode.sessions.resume",
           "when": "view == agentecode.sessions && viewItem == session",

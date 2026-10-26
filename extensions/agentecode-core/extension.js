@@ -11,6 +11,7 @@ const { registerReleaseNotes } = require('./lib/releaseNotesView');
 const { registerUsage } = require('./lib/usage/usage');
 const { registerSync } = require('./lib/sync/index');
 const { registerUsageHistory } = require('./lib/usageHistoryView');
+const { registerReviewView } = require('./lib/reviewView');
 
 /** @param {import('vscode').ExtensionContext} context */
 function activate(context) {
@@ -20,6 +21,7 @@ function activate(context) {
 	registerUsage(context);
 	registerSync(context);
 	registerUsageHistory(context);
+	registerReviewView(context);
 }
 
 function deactivate() { }
