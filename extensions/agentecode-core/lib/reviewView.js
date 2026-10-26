@@ -181,6 +181,61 @@ function registerReviewView(context) {
 		vscode.workspace.registerTextDocumentContentProvider(SCHEME, new BackupContentProvider())
 	);
 
+	// --- Rotulo em italico e na cor do tema no fim da primeira linha de cada trecho (como no Antigravity) ---
+	const hintType = vscode.window.createTextEditorDecorationType({
+		after: { margin: '0 0 0 2em', color: new vscode.ThemeColor('editorCodeLens.foreground'), fontStyle: 'italic' }
+	});
+	const asUri = value => (typeof value === 'string' ? vscode.Uri.parse(value) : value);
+	const commandLink = (command, uri, key, label) => `[${label}](command:${command}?${encodeURIComponent(JSON.stringify([uri.toString(), key]))})`;
+
+	async function updateInlineHints(editor) {
+		if (!editor || editor.document.uri.scheme !== 'file') {
+			return;
+		}
+		const enabled = vscode.workspace.getConfiguration('agentecode.review').get('inlineHint', true);
+		const item = enabled ? pendingByKey.get(keyOf(editor.document.uri.fsPath)) : undefined;
+		if (!item || item.status !== 'modified' || editor.document.getText().length > MAX_LENS_CHARS) {
+			editor.setDecorations(hintType, []);
+			return;
+		}
+		const hunks = await pendingHunks(item, editor.document.getText());
+		editor.setDecorations(hintType, hunks.map(hunk => {
+			const line = Math.min(hunk.modStart, Math.max(0, editor.document.lineCount - 1));
+			const hover = new vscode.MarkdownString(
+				`**Alterado pelo agente** · +${hunk.afterLines.length} −${hunk.beforeLines.length}\n\n` +
+				`${commandLink('agentecode.review.keepHunk', editor.document.uri, hunk.key, '$(check) Manter')} &nbsp;·&nbsp; ${commandLink('agentecode.review.undoHunk', editor.document.uri, hunk.key, '$(discard) Desfazer')}\n\n` +
+				'Atalhos: **Alt+Y** manter · **Alt+N** desfazer'
+			);
+			hover.isTrusted = true;
+			hover.supportThemeIcons = true;
+			return { range: editor.document.lineAt(line).range, hoverMessage: hover, renderOptions: { after: { contentText: '✦ agente · Alt+Y manter · Alt+N desfazer' } } };
+		}));
+	}
+	const updateAllHints = () => vscode.window.visibleTextEditors.forEach(editor => void updateInlineHints(editor));
+	let hintTimer;
+	context.subscriptions.push(
+		hintType,
+		lensEmitter.event(updateAllHints),
+		vscode.window.onDidChangeVisibleTextEditors(updateAllHints),
+		vscode.workspace.onDidChangeTextDocument(() => {
+			clearTimeout(hintTimer);
+			hintTimer = setTimeout(updateAllHints, 400);
+		}),
+		{ dispose: () => clearTimeout(hintTimer) }
+	);
+
+	/** Trecho sob o cursor do editor ativo (para os atalhos Alt+Y e Alt+N). */
+	async function hunkAtCursor() {
+		const editor = vscode.window.activeTextEditor;
+		const item = editor ? pendingByKey.get(keyOf(editor.document.uri.fsPath)) : undefined;
+		if (!editor || !item || item.status !== 'modified') {
+			return undefined;
+		}
+		const line = editor.selection.active.line;
+		const hunk = (await pendingHunks(item, editor.document.getText())).find(h => line >= h.modStart && line < Math.max(h.modEnd, h.modStart + 1));
+		return hunk ? { uri: editor.document.uri, key: hunk.key } : undefined;
+	}
+
 	async function chooseDefaultSession() {
 		const all = await listSessions((vscode.workspace.workspaceFolders ?? []).map(f => f.uri.fsPath), 30);
 		return all.find(s => s.size > 0);
@@ -328,7 +383,26 @@ function registerReviewView(context) {
 			}
 		}),
 
-		vscode.commands.registerCommand('agentecode.review.keepHunk', async (uri, key) => {
+		vscode.commands.registerCommand('agentecode.review.keepHunkAtCursor', async () => {
+			const target = await hunkAtCursor();
+			if (target) {
+				await vscode.commands.executeCommand('agentecode.review.keepHunk', target.uri, target.key);
+			} else {
+				void vscode.window.showInformationMessage('Coloque o cursor dentro de um trecho alterado pelo agente.');
+			}
+		}),
+
+		vscode.commands.registerCommand('agentecode.review.undoHunkAtCursor', async () => {
+			const target = await hunkAtCursor();
+			if (target) {
+				await vscode.commands.executeCommand('agentecode.review.undoHunk', target.uri, target.key);
+			} else {
+				void vscode.window.showInformationMessage('Coloque o cursor dentro de um trecho alterado pelo agente.');
+			}
+		}),
+
+		vscode.commands.registerCommand('agentecode.review.keepHunk', async (rawUri, key) => {
+			const uri = asUri(rawUri);
 			const item = pendingByKey.get(keyOf(uri.fsPath));
 			if (!item) {
 				return;
@@ -345,7 +419,8 @@ function registerReviewView(context) {
 			}
 		}),
 
-		vscode.commands.registerCommand('agentecode.review.undoHunk', async (uri, key) => {
+		vscode.commands.registerCommand('agentecode.review.undoHunk', async (rawUri, key) => {
+			const uri = asUri(rawUri);
 			const item = pendingByKey.get(keyOf(uri.fsPath));
 			if (!item) {
 				return;

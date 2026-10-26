@@ -151,6 +151,16 @@
         "category": "AgenteCode"
       },
       {
+        "command": "agentecode.review.keepHunkAtCursor",
+        "title": "Manter o trecho alterado pelo agente sob o cursor",
+        "category": "AgenteCode"
+      },
+      {
+        "command": "agentecode.review.undoHunkAtCursor",
+        "title": "Desfazer o trecho alterado pelo agente sob o cursor",
+        "category": "AgenteCode"
+      },
+      {
         "command": "agentecode.review.chooseBase",
         "title": "Comparar alterações com o estado de antes de um turno",
         "category": "AgenteCode",
@@ -413,6 +423,11 @@
           "type": "boolean",
           "default": true,
           "description": "Inclui a lista de extensões instaladas pelo usuário na sincronização."
+        },
+        "agentecode.review.inlineHint": {
+          "type": "boolean",
+          "default": true,
+          "description": "Mostra, no fim da primeira linha de cada trecho alterado pelo agente, um rótulo em itálico com os atalhos Alt+Y (manter) e Alt+N (desfazer)."
         },
         "agentecode.review.codeLens": {
           "type": "boolean",
