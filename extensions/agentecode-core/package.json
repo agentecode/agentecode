@@ -426,8 +426,8 @@
         },
         "agentecode.review.inlineHint": {
           "type": "boolean",
-          "default": true,
-          "description": "Mostra, no fim da primeira linha de cada trecho alterado pelo agente, um rótulo em itálico com os atalhos Alt+Y (manter) e Alt+N (desfazer)."
+          "default": false,
+          "description": "Mostra também, no fim da primeira linha de cada trecho alterado pelo agente, um rótulo em itálico com os atalhos Alt+Y (manter) e Alt+N (desfazer). Os botões acima do trecho já trazem os atalhos na dica."
         },
         "agentecode.review.codeLens": {
           "type": "boolean",

@@ -60,16 +60,20 @@ class CodeLensViewZone implements IViewZone {
  */
 const AGENT_REVIEW_KEEP_MARK = '\u2063';
 const AGENT_REVIEW_UNDO_MARK = '\u2064';
+const AGENT_REVIEW_LABEL_MARK = String.fromCharCode(0x2060);
 
 /**
- * Returns the button style of a CodeLens title (`undefined` for any other CodeLens) and the title without the mark.
+ * Returns the style of a CodeLens title (`undefined` for any other CodeLens) and the title without the mark.
  */
-function getAgentReviewButton(title: string): { kind: 'keep' | 'undo' | undefined; title: string } {
+function getAgentReviewButton(title: string): { kind: 'keep' | 'undo' | 'label' | undefined; title: string } {
 	if (title.endsWith(AGENT_REVIEW_KEEP_MARK)) {
 		return { kind: 'keep', title: title.slice(0, -1) };
 	}
 	if (title.endsWith(AGENT_REVIEW_UNDO_MARK)) {
 		return { kind: 'undo', title: title.slice(0, -1) };
+	}
+	if (title.endsWith(AGENT_REVIEW_LABEL_MARK)) {
+		return { kind: 'label', title: title.slice(0, -1) };
 	}
 	return { kind: undefined, title };
 }
@@ -121,7 +125,9 @@ class CodeLensContentWidget implements IContentWidget {
 				if (lens.command.id) {
 					const id = `c${(CodeLensContentWidget._idPool++)}`;
 					const link = dom.$('a', { id, title: lens.command.tooltip, role: 'button' }, ...title);
-					if (buttonKind) {
+					if (buttonKind === 'label') {
+						link.classList.add('agentecode-lens-label');
+					} else if (buttonKind) {
 						link.classList.add('agentecode-lens-button', `agentecode-lens-button-${buttonKind}`);
 					}
 					children.push(link);
