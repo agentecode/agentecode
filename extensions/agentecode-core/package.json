@@ -39,6 +39,9 @@
     "virtualWorkspaces": false
   },
   "contributes": {
+    "configurationDefaults": {
+      "editor.codeLensFontSize": 13
+    },
     "commands": [
       {
         "command": "agentecode.exportSessionToMarkdown",
