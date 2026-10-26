@@ -2,6 +2,16 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.7 - 26/10/2026
+
+Revisão do que o agente mudou, histórico de uso e custo e sincronização da configuração do Claude.
+
+- **Alterações do agente:** nova seção na barra lateral das Sessões do agente que lista os arquivos que o agente mudou na conversa, com as linhas acrescentadas e removidas. Clique num arquivo para ver a diferença "antes da conversa ↔ agora". Cada arquivo tem **Marcar como revisado** e **Voltar este arquivo** (o estado atual fica guardado e dá para desfazer). O que foi feito por comandos de terminal não aparece.
+- **Histórico de uso e custo:** botão no painel "Uso do Claude" (e o comando **AgenteCode: Histórico de uso e custo**) com o gasto estimado por dia, por projeto e por modelo, em 7, 30 ou 90 dias. O valor é estimado pela tabela de preços da API, não é cobrança.
+- **Sincronizar também a configuração do Claude (opcional):** no menu do Sync, **Configuração do Claude** leva o `CLAUDE.md` global e os arquivos de `~/.claude/commands`, `agents` e `skills` para o seu Gist secreto. Só texto, e arquivos com chaves ou tokens são pulados. Fica desligado até você ligar.
+- **Limites 5h e 7d em verde:** a cor-base dos dois limites passa a ser o verde do contexto, com o degradê para âmbar e vermelho. O tooltip e o painel mostram o horário em que cada limite reinicia.
+- **Correção:** **Desfazer a última sincronização** não restaurava os arquivos e agora restaura. O **Voltar arquivos para antes desta resposta** também passa a funcionar em conversas em que o Claude Code grava os caminhos relativos à pasta.
+
 ## v1.0.6 - 23/10/2026
 
 Horário de reinício dos limites de uso.
