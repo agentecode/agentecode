@@ -21,6 +21,9 @@ const SCHEME = 'agentecode-review';
 const REVIEWED_KEY = 'agentecode.review.reviewed';
 const KEPT_HUNKS_KEY = 'agentecode.review.keptHunks';
 const MAX_LENS_CHARS = 1024 * 1024;
+/** Sinais invisiveis no fim do titulo do CodeLens: o editor do AgenteCode desenha esses itens como botoes. */
+const KEEP_MARK = '\u2063';
+const UNDO_MARK = '\u2064';
 const REFRESH_MS = 15000;
 const EMPTY = 'none';
 
@@ -158,16 +161,16 @@ function registerReviewView(context) {
 				}
 				const top = new vscode.Range(0, 0, 0, 0);
 				return [
-					new vscode.CodeLens(top, { title: '$(check) Manter arquivo novo', command: 'agentecode.review.keep', arguments: [item] }),
-					new vscode.CodeLens(top, { title: '$(trash) Excluir', command: 'agentecode.review.revert', arguments: [item] })
+					new vscode.CodeLens(top, { title: `$(check) Manter arquivo novo${KEEP_MARK}`, command: 'agentecode.review.keep', arguments: [item] }),
+					new vscode.CodeLens(top, { title: `$(trash) Excluir${UNDO_MARK}`, command: 'agentecode.review.revert', arguments: [item] })
 				];
 			}
 			return hunks.flatMap(hunk => {
 				const line = Math.min(hunk.modStart, Math.max(0, document.lineCount - 1));
 				const range = new vscode.Range(line, 0, line, 0);
 				return [
-					new vscode.CodeLens(range, { title: '$(check) Manter', command: 'agentecode.review.keepHunk', arguments: [document.uri, hunk.key] }),
-					new vscode.CodeLens(range, { title: '$(discard) Desfazer', command: 'agentecode.review.undoHunk', arguments: [document.uri, hunk.key] }),
+					new vscode.CodeLens(range, { title: `$(check) Manter${KEEP_MARK}`, tooltip: 'Manter este trecho (Alt+Y)', command: 'agentecode.review.keepHunk', arguments: [document.uri, hunk.key] }),
+					new vscode.CodeLens(range, { title: `$(discard) Desfazer${UNDO_MARK}`, tooltip: 'Desfazer este trecho (Alt+N)', command: 'agentecode.review.undoHunk', arguments: [document.uri, hunk.key] }),
 					new vscode.CodeLens(range, { title: `$(diff) +${hunk.afterLines.length} −${hunk.beforeLines.length}`, command: 'agentecode.review.open', arguments: [item] })
 				];
 			});
@@ -281,6 +284,8 @@ function registerReviewView(context) {
 				}
 
 				const pendingNow = review ? review.pending : [];
+				const sum = key => pendingNow.reduce((total, item) => total + (item[key] ?? 0), 0);
+				view.description = pendingNow.length ? `${pendingNow.length} arquivo(s) +${sum('added')} −${sum('removed')}` : undefined;
 				view.badge = pendingNow.length ? { value: pendingNow.length, tooltip: `${pendingNow.length} arquivo(s) a revisar` } : undefined;
 				scm.count = pendingNow.length;
 				scmGroup.resourceStates = pendingNow.map(item => ({

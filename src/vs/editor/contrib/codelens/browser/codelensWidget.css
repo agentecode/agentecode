@@ -53,6 +53,51 @@
 	cursor: pointer;
 }
 
+/* AgenteCode: Keep / Undo of the agent review drawn as buttons */
+.monaco-editor .codelens-decoration .agentecode-lens-gap {
+	display: inline-block;
+	width: 6px;
+}
+
+.monaco-editor .codelens-decoration > a.agentecode-lens-button {
+	box-sizing: border-box;
+	padding: 0 10px;
+	height: 1.55em;
+	border-radius: 4px;
+	border: 1px solid transparent;
+	font-weight: 600;
+	vertical-align: middle;
+	cursor: pointer;
+}
+
+.monaco-editor .codelens-decoration > a.agentecode-lens-button .codicon[class*='codicon-'] {
+	margin-right: 3px;
+	color: inherit !important;
+}
+
+.monaco-editor .codelens-decoration > a.agentecode-lens-button-keep {
+	background-color: #2ea043;
+	border-color: #2ea043;
+	color: #ffffff !important;
+}
+
+.monaco-editor .codelens-decoration > a.agentecode-lens-button-keep:hover {
+	background-color: #3fb950;
+	border-color: #3fb950;
+	color: #ffffff !important;
+}
+
+.monaco-editor .codelens-decoration > a.agentecode-lens-button-undo {
+	background-color: transparent;
+	border-color: var(--vscode-editorCodeLens-foreground);
+	color: var(--vscode-editorCodeLens-foreground) !important;
+}
+
+.monaco-editor .codelens-decoration > a.agentecode-lens-button-undo:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+	color: var(--vscode-editorLink-activeForeground) !important;
+}
+
 @keyframes fadein {
 	0% { opacity: 0;}
 	100% { opacity: 1;}

@@ -54,6 +54,26 @@ class CodeLensViewZone implements IViewZone {
 	}
 }
 
+/**
+ * The AgenteCode agent review marks its Keep/Undo CodeLens titles with an invisible trailing character
+ * (the extension host replaces the command id of commands with arguments, so the id cannot be used).
+ */
+const AGENT_REVIEW_KEEP_MARK = '\u2063';
+const AGENT_REVIEW_UNDO_MARK = '\u2064';
+
+/**
+ * Returns the button style of a CodeLens title (`undefined` for any other CodeLens) and the title without the mark.
+ */
+function getAgentReviewButton(title: string): { kind: 'keep' | 'undo' | undefined; title: string } {
+	if (title.endsWith(AGENT_REVIEW_KEEP_MARK)) {
+		return { kind: 'keep', title: title.slice(0, -1) };
+	}
+	if (title.endsWith(AGENT_REVIEW_UNDO_MARK)) {
+		return { kind: 'undo', title: title.slice(0, -1) };
+	}
+	return { kind: undefined, title };
+}
+
 class CodeLensContentWidget implements IContentWidget {
 
 	private static _idPool: number = 0;
@@ -95,15 +115,23 @@ class CodeLensContentWidget implements IContentWidget {
 			}
 			hasSymbol = true;
 			if (lens.command) {
-				const title = renderLabelWithIcons(lens.command.title.trim());
+				// AgenteCode: Keep/Undo of the agent review are drawn as real buttons
+				const { kind: buttonKind, title: plainTitle } = getAgentReviewButton(lens.command.title.trim());
+				const title = renderLabelWithIcons(plainTitle);
 				if (lens.command.id) {
 					const id = `c${(CodeLensContentWidget._idPool++)}`;
-					children.push(dom.$('a', { id, title: lens.command.tooltip, role: 'button' }, ...title));
+					const link = dom.$('a', { id, title: lens.command.tooltip, role: 'button' }, ...title);
+					if (buttonKind) {
+						link.classList.add('agentecode-lens-button', `agentecode-lens-button-${buttonKind}`);
+					}
+					children.push(link);
 					this._commands.set(id, lens.command);
 				} else {
 					children.push(dom.$('span', { title: lens.command.tooltip }, ...title));
 				}
-				if (i + 1 < lenses.length) {
+				if (i + 1 < lenses.length && buttonKind) {
+					children.push(dom.$('span.agentecode-lens-gap'));
+				} else if (i + 1 < lenses.length) {
 					children.push(dom.$('span', undefined, '\u00a0|\u00a0'));
 				}
 			}
