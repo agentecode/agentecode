@@ -25,6 +25,14 @@ const MAX_LENS_CHARS = 1024 * 1024;
 const KEEP_MARK = '\u2063';
 const UNDO_MARK = '\u2064';
 const LABEL_MARK = String.fromCharCode(0x2060);
+/** Caixa que aparece ao passar o mouse sobre o rotulo em italico (o rotulo nao e clicavel). */
+const LABEL_TOOLTIP = [
+	'Alterado pelo agente nesta conversa.',
+	'',
+	'Alt+Y: manter este trecho',
+	'Alt+N: desfazer este trecho',
+	'Clique em +N −M para ver a diferença (antes ↔ agora).'
+].join('\n');
 const REFRESH_MS = 15000;
 const EMPTY = 'none';
 
@@ -165,7 +173,7 @@ function registerReviewView(context) {
 					new vscode.CodeLens(top, { title: `$(check) Manter${KEEP_MARK}`, tooltip: 'Manter o arquivo novo', command: 'agentecode.review.keep', arguments: [item] }),
 					new vscode.CodeLens(top, { title: `$(trash) Excluir${UNDO_MARK}`, tooltip: 'Excluir o arquivo novo', command: 'agentecode.review.revert', arguments: [item] }),
 					new vscode.CodeLens(top, { title: `$(diff) +${hunks[0].afterLines.length} −0`, tooltip: 'Ver o arquivo', command: 'agentecode.review.open', arguments: [item] }),
-					new vscode.CodeLens(top, { title: `✦ agente · arquivo novo${LABEL_MARK}`, tooltip: 'Ver o arquivo', command: 'agentecode.review.open', arguments: [item] })
+					new vscode.CodeLens(top, { title: `✦ agente · arquivo novo${LABEL_MARK}`, tooltip: LABEL_TOOLTIP, command: 'agentecode.review.open', arguments: [item] })
 				];
 			}
 			return hunks.flatMap(hunk => {
@@ -175,7 +183,7 @@ function registerReviewView(context) {
 					new vscode.CodeLens(range, { title: `$(check) Manter${KEEP_MARK}`, tooltip: 'Manter este trecho (Alt+Y)', command: 'agentecode.review.keepHunk', arguments: [document.uri, hunk.key] }),
 					new vscode.CodeLens(range, { title: `$(discard) Desfazer${UNDO_MARK}`, tooltip: 'Desfazer este trecho (Alt+N)', command: 'agentecode.review.undoHunk', arguments: [document.uri, hunk.key] }),
 					new vscode.CodeLens(range, { title: `$(diff) +${hunk.afterLines.length} −${hunk.beforeLines.length}`, tooltip: 'Ver a diferença (antes ↔ agora)', command: 'agentecode.review.open', arguments: [item] }),
-					new vscode.CodeLens(range, { title: `✦ agente · Alt+Y manter · Alt+N desfazer${LABEL_MARK}`, tooltip: 'Ver a diferença (antes ↔ agora)', command: 'agentecode.review.open', arguments: [item] })
+					new vscode.CodeLens(range, { title: `✦ agente · Alt+Y manter · Alt+N desfazer${LABEL_MARK}`, tooltip: LABEL_TOOLTIP, command: 'agentecode.review.open', arguments: [item] })
 				];
 			});
 		}

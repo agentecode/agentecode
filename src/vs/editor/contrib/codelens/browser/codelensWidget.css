@@ -59,11 +59,12 @@
 	width: 6px;
 }
 
-.monaco-editor .codelens-decoration > a.agentecode-lens-label {
+.monaco-editor .codelens-decoration > span.agentecode-lens-label {
 	font-style: italic;
 	font-weight: 600;
 	margin-right: 4px;
 	color: var(--vscode-editorCodeLens-foreground);
+	cursor: default;
 }
 
 .monaco-editor .codelens-decoration > a.agentecode-lens-button {

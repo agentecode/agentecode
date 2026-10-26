@@ -64,6 +64,7 @@ const AGENT_REVIEW_LABEL_MARK = String.fromCharCode(0x2060);
 
 /**
  * Returns the style of a CodeLens title (`undefined` for any other CodeLens) and the title without the mark.
+ * `label` is a plain, non-clickable text.
  */
 function getAgentReviewButton(title: string): { kind: 'keep' | 'undo' | 'label' | undefined; title: string } {
 	if (title.endsWith(AGENT_REVIEW_KEEP_MARK)) {
@@ -122,12 +123,13 @@ class CodeLensContentWidget implements IContentWidget {
 				// AgenteCode: Keep/Undo of the agent review are drawn as real buttons
 				const { kind: buttonKind, title: plainTitle } = getAgentReviewButton(lens.command.title.trim());
 				const title = renderLabelWithIcons(plainTitle);
-				if (lens.command.id) {
+				if (buttonKind === 'label') {
+					// plain text: no link, no click (the tooltip explains it)
+					children.push(dom.$('span.agentecode-lens-label', { title: lens.command.tooltip }, ...title));
+				} else if (lens.command.id) {
 					const id = `c${(CodeLensContentWidget._idPool++)}`;
 					const link = dom.$('a', { id, title: lens.command.tooltip, role: 'button' }, ...title);
-					if (buttonKind === 'label') {
-						link.classList.add('agentecode-lens-label');
-					} else if (buttonKind) {
+					if (buttonKind) {
 						link.classList.add('agentecode-lens-button', `agentecode-lens-button-${buttonKind}`);
 					}
 					children.push(link);
