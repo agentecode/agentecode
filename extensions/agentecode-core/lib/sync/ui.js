@@ -52,10 +52,11 @@ async function showDeviceCodeNotification(userCode, verificationUri) {
  * @param {boolean} params.isConnected
  * @param {string} [params.userLogin]
  * @param {boolean} [params.isAutoSync]
+ * @param {boolean} [params.isClaudeSync]
  * @param {string} [params.lastSyncText]
  * @returns {Promise<string | null>} ID da acao escolhida ou null
  */
-async function showQuickPickMenu({ isConnected, userLogin = '', isAutoSync = true, lastSyncText = '' }) {
+async function showQuickPickMenu({ isConnected, userLogin = '', isAutoSync = true, isClaudeSync = false, lastSyncText = '' }) {
 	const items = [];
 
 	if (!isConnected) {
@@ -99,6 +100,11 @@ async function showQuickPickMenu({ isConnected, userLogin = '', isAutoSync = tru
 			id: 'toggle_auto',
 			label: `$(sync) Sincronização automática: ${isAutoSync ? 'Ligada' : 'Desligada'}`,
 			description: isAutoSync ? 'Clique para desativar o envio em segundo plano' : 'Clique para ativar o envio automático ao salvar'
+		});
+		items.push({
+			id: 'toggle_claude',
+			label: `$(sparkle) Configuração do Claude: ${isClaudeSync ? 'Ligada' : 'Desligada'}`,
+			description: isClaudeSync ? 'CLAUDE.md, comandos, agentes e skills vão junto' : 'Clique para levar também CLAUDE.md, comandos, agentes e skills'
 		});
 		items.push({
 			id: 'undo',

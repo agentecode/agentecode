@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const path = require('path');
 const config = require('./config');
 const { filterSettings, filterKeybindings, filterSnippets } = require('./exclusions');
+const { collectClaudeFiles } = require('./claudeConfig');
 
 /**
  * Calcula o hash SHA-256 de uma string em formato hexadecimal.
@@ -139,6 +140,7 @@ function normalizeExtensions(extensions) {
  * @param {(dirPath: string) => Promise<string[]>} [options.readDir]
  * @param {() => Promise<string[]>} [options.listUserExtensions]
  * @param {string[]} [options.customExclusions]
+ * @param {string | null} [options.claudeDir] Pasta ~/.claude; quando informada, inclui CLAUDE.md, commands, agents e skills
  * @returns {Promise<{ files: Record<string, string>, fileHashes: Record<string, string>, extensions: string[], compositeHash: string, snippetNames: Record<string, string> }>}
  */
 async function createLocalSnapshot({
@@ -146,7 +148,8 @@ async function createLocalSnapshot({
 	readFile,
 	readDir,
 	listUserExtensions,
-	customExclusions = []
+	customExclusions = [],
+	claudeDir = null
 }) {
 	const files = {};
 	const fileHashes = {};
@@ -205,6 +208,18 @@ async function createLocalSnapshot({
 		}
 	}
 
+	// 3b. Configuracao do Claude (opcional)
+	let claudePaths = {};
+	if (claudeDir) {
+		const claude = await collectClaudeFiles(claudeDir);
+		for (const [gistName, content] of Object.entries(claude.files)) {
+			files[gistName] = content;
+			fileHashes[gistName] = sha256(content);
+		}
+		claudePaths = claude.paths;
+		allOmitted.push(...claude.omitted);
+	}
+
 	// 4. extensions.json
 	let userExtensions = [];
 	if (listUserExtensions) {
@@ -232,6 +247,7 @@ async function createLocalSnapshot({
 		extensions: userExtensions,
 		compositeHash,
 		snippetNames,
+		claudePaths,
 		omitted: allOmitted
 	};
 }
@@ -274,6 +290,10 @@ function buildManifest(snapshot, machineInfo = {}) {
 
 	if (snapshot.snippetNames && Object.keys(snapshot.snippetNames).length > 0) {
 		manifest.snippetNames = snapshot.snippetNames;
+	}
+
+	if (snapshot.claudePaths && Object.keys(snapshot.claudePaths).length > 0) {
+		manifest.claudePaths = snapshot.claudePaths;
 	}
 
 	return JSON.stringify(manifest, null, '\t') + '\n';

@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const config = require('./config');
+const { resolveClaudePath, isValidClaudeRelPath } = require('./claudeConfig');
 
 /**
  * Cria uma copia de seguranca local de settings.json, keybindings.json e snippets/ antes de aplicar mudancas.
@@ -17,6 +18,8 @@ const config = require('./config');
  * @param {string} backupBaseDir Diretorio base onde os backups serao armazenados
  * @param {object} [options]
  * @param {number} [options.maxBackups]
+ * @param {string} [options.claudeDir] Pasta ~/.claude, para guardar tambem os arquivos do Claude que existam
+ * @param {string[]} [options.claudePaths] Caminhos relativos (em '/') dos arquivos do Claude a guardar
  * @returns {Promise<{ backupPath: string, filesCopied: string[], timestamp: string }>}
  */
 async function createBackup(userDir, backupBaseDir, options = {}) {
@@ -71,14 +74,34 @@ async function createBackup(userDir, backupBaseDir, options = {}) {
 		}
 	}
 
-	// 4. Metadados do backup
+	// 4. Arquivos da configuracao do Claude
+	if (options.claudeDir && Array.isArray(options.claudePaths)) {
+		for (const rel of options.claudePaths) {
+			const src = resolveClaudePath(options.claudeDir, rel);
+			const dst = resolveClaudePath(path.join(backupPath, 'claude'), rel);
+			if (!src || !dst) {
+				continue;
+			}
+			try {
+				await fs.promises.mkdir(path.dirname(dst), { recursive: true });
+				await fs.promises.copyFile(src, dst);
+				filesCopied.push(`claude/${rel}`);
+			} catch (e) {
+				if (e.code !== 'ENOENT') {
+					throw e;
+				}
+			}
+		}
+	}
+
+	// 5. Metadados do backup
 	const meta = {
 		createdAt: now.toISOString(),
 		files: filesCopied
 	};
 	await fs.promises.writeFile(path.join(backupPath, 'backup-meta.json'), JSON.stringify(meta, null, '\t') + '\n', 'utf8');
 
-	// 5. Limpeza de backups antigos (mantem os maxBackups mais recentes)
+	// 6. Limpeza de backups antigos (mantem os maxBackups mais recentes)
 	await pruneOldBackups(backupBaseDir, maxBackups);
 
 	return {
@@ -155,9 +178,10 @@ async function listBackups(backupBaseDir) {
  * Restaura arquivos de um backup de volta para o diretorio User.
  * @param {string} backupPath Caminho da pasta de backup a ser restaurada
  * @param {string} userDir Diretorio 'User' de destino
+ * @param {string} [claudeDir] Pasta ~/.claude de destino para os arquivos guardados em claude/
  * @returns {Promise<{ restoredFiles: string[] }>}
  */
-async function restoreBackup(backupPath, userDir) {
+async function restoreBackup(backupPath, userDir, claudeDir) {
 	const restoredFiles = [];
 
 	// 1. settings.json
@@ -196,6 +220,41 @@ async function restoreBackup(backupPath, userDir) {
 	} catch (e) {
 		if (e.code !== 'ENOENT') {
 			throw e;
+		}
+	}
+
+	// 4. Configuracao do Claude
+	if (claudeDir) {
+		const claudeSrc = path.join(backupPath, 'claude');
+		const walkFiles = async (sub) => {
+			let entries;
+			try {
+				entries = await fs.promises.readdir(path.join(claudeSrc, sub), { withFileTypes: true });
+			} catch {
+				return [];
+			}
+			const out = [];
+			for (const entry of entries) {
+				const rel = sub ? `${sub}/${entry.name}` : entry.name;
+				if (entry.isDirectory()) {
+					out.push(...await walkFiles(rel));
+				} else if (entry.isFile()) {
+					out.push(rel);
+				}
+			}
+			return out;
+		};
+		for (const rel of await walkFiles('')) {
+			if (!isValidClaudeRelPath(rel)) {
+				continue;
+			}
+			const src = resolveClaudePath(claudeSrc, rel);
+			const dst = resolveClaudePath(claudeDir, rel);
+			if (src && dst) {
+				await fs.promises.mkdir(path.dirname(dst), { recursive: true });
+				await fs.promises.copyFile(src, dst);
+				restoredFiles.push(`claude/${rel}`);
+			}
 		}
 	}
 

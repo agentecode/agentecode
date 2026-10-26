@@ -196,3 +196,7 @@ extensions/agentecode-core/lib/sync/guia.js
 extensions/agentecode-core/lib/sync/ui.js
 extensions/agentecode-core/lib/sync/syncController.js
 extensions/agentecode-core/lib/sync/index.js
+extensions/agentecode-core/lib/sync/claudeConfig.js
+extensions/agentecode-core/lib/usageHistory.js
+extensions/agentecode-core/lib/usageHistoryView.js
+extensions/agentecode-core/test/usageHistory.test.js

@@ -62,3 +62,17 @@ Caso tenha baixado configurações e queira voltar ao estado anterior:
 2. Clique em **Desconectar**.
 3. O token de acesso será removido com segurança do armazenamento criptografado da IDE.
 4. Seu Gist no GitHub **não** é excluído ao desconectar, garantindo que você não perca seu histórico. Caso deseje apagá-lo, você pode usar a opção **Abrir Gist no navegador** antes de desconectar.
+
+## 6. Levar também a configuração do Claude (opcional)
+
+Por padrão, só as configurações da IDE são sincronizadas. Se você quiser que o "jeito" do seu agente acompanhe você em outro computador:
+
+1. Abra o menu **Sync Settings with GitHub...**
+2. Clique em **Configuração do Claude: Desligada** e confirme em **Ligar**.
+3. Passam a ser enviados o seu `CLAUDE.md` global e os arquivos de `~/.claude/commands`, `agents` e `skills` (somente texto, até 200 KB cada).
+
+O que **nunca** é enviado: seu login do Claude, o histórico das conversas e o `settings.json` do Claude. Arquivos que contenham chaves ou tokens são pulados automaticamente.
+
+> **Atenção:** o Gist é secreto, mas quem tiver o link consegue ler o conteúdo. Não deixe informações confidenciais nesses arquivos.
+
+Ao baixar em outro computador, os arquivos do Claude também passam pela pré-visualização, e uma cópia dos que seriam substituídos é guardada para o **Desfazer**.

@@ -19,6 +19,7 @@ const plan = require('./plan');
 const backup = require('./backup');
 const { isFirstTimeGuide, markGuideShown, openGuide, GUIDE_SHOWN_KEY } = require('./guia');
 const ui = require('./ui');
+const claudeConfig = require('./claudeConfig');
 const { mergeExcludedSettings } = require('./exclusions');
 
 const TOKEN_SECRET_KEY = 'agentecode.sync.githubToken';
@@ -40,6 +41,7 @@ class SyncController {
 		// Localizacao das pastas
 		this.userDir = this._resolveUserDir();
 		this.backupDir = path.join(context.globalStorageUri.fsPath, 'backups');
+		this.claudeDir = path.join(os.homedir(), '.claude');
 
 		this.log.info('AgenteCode Sync inicializado. Diretório de usuário:', this.userDir);
 	}
@@ -105,6 +107,15 @@ class SyncController {
 		return vscode.workspace.getConfiguration('agentecode.sync').get('auto', true);
 	}
 
+	isClaudeSyncEnabled() {
+		return vscode.workspace.getConfiguration('agentecode.sync').get('syncClaudeConfig', false);
+	}
+
+	/** Pasta ~/.claude somente quando o usuario ligou a sincronizacao da configuracao do Claude. */
+	_claudeDirIfEnabled() {
+		return this.isClaudeSyncEnabled() ? this.claudeDir : null;
+	}
+
 	getCustomExclusions() {
 		return vscode.workspace.getConfiguration('agentecode.sync').get('excludedSettings', []);
 	}
@@ -136,6 +147,7 @@ class SyncController {
 			isConnected,
 			userLogin,
 			isAutoSync,
+			isClaudeSync: this.isClaudeSyncEnabled(),
 			lastSyncText
 		});
 
@@ -162,6 +174,9 @@ class SyncController {
 				break;
 			case 'toggle_auto':
 				await this.toggleAutoSync();
+				break;
+			case 'toggle_claude':
+				await this.toggleClaudeSync();
 				break;
 			case 'undo':
 				await this.undoLastSync();
@@ -347,7 +362,8 @@ class SyncController {
 						.filter(ext => !ext.packageJSON.isBuiltin)
 						.map(ext => ext.id.toLowerCase());
 				},
-				customExclusions
+				customExclusions,
+				claudeDir: this._claudeDirIfEnabled()
 			});
 
 			const manifestJson = snapshot.buildManifest(localSnap, {
@@ -465,6 +481,14 @@ class SyncController {
 			const fullGist = gistDetails.gist || gist;
 
 			const remoteData = snapshot.parseRemoteGistFiles(fullGist.files);
+			if (!this.isClaudeSyncEnabled()) {
+				// Sem a opcao ligada, a configuracao do Claude que estiver no Gist e ignorada
+				for (const name of Object.keys(remoteData.files)) {
+					if (claudeConfig.isClaudeGistName(name)) {
+						delete remoteData.files[name];
+					}
+				}
+			}
 
 			const customExclusions = this.getCustomExclusions();
 			const localSnap = await snapshot.createLocalSnapshot({
@@ -476,7 +500,8 @@ class SyncController {
 						.filter(ext => !ext.packageJSON.isBuiltin)
 						.map(ext => ext.id.toLowerCase());
 				},
-				customExclusions
+				customExclusions,
+				claudeDir: this._claudeDirIfEnabled()
 			});
 
 			const base = this.getLastSync();
@@ -515,7 +540,13 @@ class SyncController {
 			}
 
 			// Realiza backup local antes de aplicar
-			await backup.createBackup(this.userDir, this.backupDir);
+			const claudePathsToBackup = this.isClaudeSyncEnabled()
+				? Object.keys(remoteData.files)
+					.filter(name => claudeConfig.isClaudeGistName(name))
+					.map(name => claudeConfig.restoreClaudePath(name, remoteData.manifest && remoteData.manifest.claudePaths))
+					.filter(Boolean)
+				: [];
+			await backup.createBackup(this.userDir, this.backupDir, { claudeDir: this.claudeDir, claudePaths: claudePathsToBackup });
 
 			// Aplica os arquivos do Gist
 			await this._applyRemoteFiles(remoteData.files, remoteData.manifest);
@@ -554,7 +585,8 @@ class SyncController {
 				userDir: this.userDir,
 				readFile: p => fs.promises.readFile(p, 'utf8').catch(() => null),
 				readDir: d => fs.promises.readdir(d).catch(() => []),
-				customExclusions
+				customExclusions,
+				claudeDir: this._claudeDirIfEnabled()
 			});
 
 			await this.setLastSync({
@@ -612,6 +644,20 @@ class SyncController {
 				continue;
 			}
 
+			// Configuracao do Claude (so entra se o manifesto mapeia o arquivo e o caminho e seguro)
+			if (claudeConfig.isClaudeGistName(name)) {
+				if (!this.isClaudeSyncEnabled()) {
+					continue;
+				}
+				const rel = claudeConfig.restoreClaudePath(name, remoteManifest && remoteManifest.claudePaths);
+				const target = rel ? claudeConfig.resolveClaudePath(this.claudeDir, rel) : null;
+				if (target) {
+					await fs.promises.mkdir(path.dirname(target), { recursive: true });
+					await this._writeFileAtomic(target, content);
+				}
+				continue;
+			}
+
 			// Snippets
 			if (name.startsWith(config.SNIPPET_PREFIX)) {
 				const safeName = snapshot.restoreSnippetName(name, remoteManifest?.files);
@@ -658,13 +704,22 @@ class SyncController {
 
 	async undoLastSync() {
 		try {
-			const success = await backup.restoreBackup(this.userDir, this.backupDir);
-			if (success) {
-				void vscode.window.showInformationMessage('A última sincronização foi desfeita. Seus arquivos anteriores foram restaurados.');
-				this.log.info('Backup restaurado com sucesso.');
-			} else {
+			const backups = await backup.listBackups(this.backupDir);
+			if (backups.length === 0) {
 				void vscode.window.showWarningMessage('Nenhum backup recente foi encontrado para restauração.');
+				return;
 			}
+			const choice = await vscode.window.showWarningMessage(
+				`Restaurar os arquivos de ${new Date(backups[0].createdAt).toLocaleString('pt-BR')}? Os arquivos atuais serão substituídos pelos guardados antes da última sincronização.`,
+				{ modal: true },
+				'Restaurar'
+			);
+			if (choice !== 'Restaurar') {
+				return;
+			}
+			const { restoredFiles } = await backup.restoreBackup(backups[0].backupPath, this.userDir, this.claudeDir);
+			void vscode.window.showInformationMessage(`A última sincronização foi desfeita (${restoredFiles.length} arquivo(s) restaurado(s)).`);
+			this.log.info('Backup restaurado com sucesso:', restoredFiles.join(', '));
 		} catch (err) {
 			this.log.error('Erro ao desfazer sincronização:', err);
 			ui.showFriendlyError(err);
@@ -699,6 +754,27 @@ class SyncController {
 		);
 		const statusText = !current ? 'ativada' : 'desativada';
 		void vscode.window.showInformationMessage(`Sincronização automática ${statusText}.`);
+	}
+
+	async toggleClaudeSync() {
+		const enabled = this.isClaudeSyncEnabled();
+		if (!enabled) {
+			const choice = await vscode.window.showInformationMessage(
+				'Sincronizar também a configuração do Claude?',
+				{
+					modal: true,
+					detail: 'Serão enviados ao seu Gist secreto: o CLAUDE.md global e os arquivos de ~/.claude/commands, agents e skills (somente texto, até 200 KB cada). ' +
+						'Login, histórico de conversas e settings.json do Claude nunca são enviados, e arquivos com chaves ou tokens são pulados. ' +
+						'Lembre-se: quem tiver o link do Gist secreto consegue ler o conteúdo, então não deixe nada confidencial nesses arquivos.'
+				},
+				'Ligar'
+			);
+			if (choice !== 'Ligar') {
+				return;
+			}
+		}
+		await vscode.workspace.getConfiguration('agentecode.sync').update('syncClaudeConfig', !enabled, vscode.ConfigurationTarget.Global);
+		void vscode.window.showInformationMessage(`Sincronização da configuração do Claude ${!enabled ? 'ligada' : 'desligada'}.`);
 	}
 
 	async disconnect() {
@@ -804,7 +880,8 @@ class SyncController {
 						userDir: this.userDir,
 						readFile: p => fs.promises.readFile(p, 'utf8').catch(() => null),
 						readDir: d => fs.promises.readdir(d).catch(() => []),
-						customExclusions: this.getCustomExclusions()
+						customExclusions: this.getCustomExclusions(),
+						claudeDir: this._claudeDirIfEnabled()
 					});
 
 					if (lastSync && lastSync.localHash === localSnap.compositeHash) {
@@ -828,6 +905,19 @@ class SyncController {
 				}
 			}, Math.max(10, delaySeconds) * 1000);
 		};
+
+		const claudeWatcher = vscode.workspace.createFileSystemWatcher(
+			new vscode.RelativePattern(this.claudeDir, '{CLAUDE.md,commands/**,agents/**,skills/**}')
+		);
+		const scheduleClaudeSync = () => {
+			if (this.isClaudeSyncEnabled()) {
+				scheduleAutoSync();
+			}
+		};
+		claudeWatcher.onDidChange(scheduleClaudeSync);
+		claudeWatcher.onDidCreate(scheduleClaudeSync);
+		claudeWatcher.onDidDelete(scheduleClaudeSync);
+		this.context.subscriptions.push(claudeWatcher);
 
 		watcher.onDidChange(scheduleAutoSync);
 		watcher.onDidCreate(scheduleAutoSync);

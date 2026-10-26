@@ -19,6 +19,7 @@ const plan = require('../lib/sync/plan');
 const githubAuth = require('../lib/sync/githubAuth');
 const gistClient = require('../lib/sync/gistClient');
 const backup = require('../lib/sync/backup');
+const claudeConfig = require('../lib/sync/claudeConfig');
 const { createFakeGitHub } = require('./fakeGitHub');
 
 describe('Sincronizacao de Configuracoes - Nucleo Puro', () => {
@@ -1236,6 +1237,85 @@ describe('Sincronizacao de Configuracoes - Nucleo Puro', () => {
 			assert.equal(plan.decideUpload({ action: 'conflict', hasChanges: true }, { auto: true }), 'blocked');
 			assert.equal(plan.decideUpload({ action: 'conflict', hasChanges: true }, { auto: false }), 'askConflict');
 			assert.equal(plan.decideUpload({ action: 'downloadFirst', hasChanges: true }, { auto: false }), 'askConflict');
+		});
+	});
+
+
+	describe('Configuracao do Claude', () => {
+		let dir;
+		before(() => {
+			dir = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-cfg-'));
+			const w = (rel, text) => {
+				const full = path.join(dir, ...rel.split('/'));
+				fs.mkdirSync(path.dirname(full), { recursive: true });
+				fs.writeFileSync(full, text, 'utf8');
+			};
+			w('CLAUDE.md', '# Meu jeito\nResponda em pt-BR.');
+			w('commands/revisar.md', 'Revise o codigo.');
+			w('agents/dev.md', 'Voce e um dev.');
+			w('skills/x/SKILL.md', '# Skill X');
+			w('skills/x/com-chave.md', 'use a chave sk-ant-api03-abcdefghijklmnopqrstuvwxyz');
+			w('skills/x/cfg.json', '{ "apiKey": "abc123" }');
+			w('skills/x/imagem.png', 'binario');
+			w('.credentials.json', '{"token":"segredo"}');
+			w('projects/p/sessao.jsonl', '{}');
+			w('skills/.oculto/a.md', 'oculto');
+		});
+		after(() => {
+			fs.rmSync(dir, { recursive: true, force: true });
+		});
+
+		test('coleta so o que e permitido e pula arquivos com segredos', async () => {
+			const res = await claudeConfig.collectClaudeFiles(dir);
+			assert.deepEqual(Object.values(res.paths).sort(), [
+				'CLAUDE.md', 'agents/dev.md', 'commands/revisar.md', 'skills/x/SKILL.md'
+			]);
+			assert.deepEqual(res.omitted.sort(), ['claude:skills/x/cfg.json', 'claude:skills/x/com-chave.md']);
+		});
+
+		test('snapshot inclui os arquivos do Claude e o manifesto mapeia os caminhos', async () => {
+			const userDir = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-user-'));
+			try {
+				const snap = await snapshot.createLocalSnapshot({
+					userDir,
+					readFile: async p => fs.promises.readFile(p, 'utf8').catch(() => null),
+					claudeDir: dir
+				});
+				assert.ok(snap.files['claude--commands--revisar.md']);
+				const manifest = JSON.parse(snapshot.buildManifest(snap));
+				assert.equal(manifest.claudePaths['claude--commands--revisar.md'], 'commands/revisar.md');
+				const off = await snapshot.createLocalSnapshot({ userDir, readFile: async () => null });
+				assert.equal(Object.keys(off.files).some(n => n.startsWith('claude--')), false);
+			} finally {
+				fs.rmSync(userDir, { recursive: true, force: true });
+			}
+		});
+
+		test('caminhos vindos do Gist sao validados contra traversal', () => {
+			const map = { 'claude--x': '../../evil.md', 'claude--y': 'commands/ok.md', 'claude--z': 'settings.json', 'claude--w': 'commands/../../a.md' };
+			assert.equal(claudeConfig.restoreClaudePath('claude--x', map), null);
+			assert.equal(claudeConfig.restoreClaudePath('claude--y', map), 'commands/ok.md');
+			assert.equal(claudeConfig.restoreClaudePath('claude--z', map), null);
+			assert.equal(claudeConfig.restoreClaudePath('claude--w', map), null);
+			assert.equal(claudeConfig.restoreClaudePath('claude--sem-mapa', map), null);
+			assert.equal(claudeConfig.resolveClaudePath(dir, 'commands/ok.md'), path.resolve(dir, 'commands', 'ok.md'));
+			assert.equal(claudeConfig.resolveClaudePath(dir, '../fora.md'), null);
+		});
+
+		test('backup guarda e restaura os arquivos do Claude', async () => {
+			const userDir = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-bu-user-'));
+			const backupDir = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-bu-'));
+			try {
+				const { backupPath, filesCopied } = await backup.createBackup(userDir, backupDir, { claudeDir: dir, claudePaths: ['CLAUDE.md', 'commands/revisar.md', 'commands/nao-existe.md'] });
+				assert.deepEqual(filesCopied.sort(), ['claude/CLAUDE.md', 'claude/commands/revisar.md']);
+				const target = path.join(dir, 'commands', 'revisar.md');
+				fs.writeFileSync(target, 'ALTERADO', 'utf8');
+				await backup.restoreBackup(backupPath, userDir, dir);
+				assert.equal(fs.readFileSync(target, 'utf8'), 'Revise o codigo.');
+			} finally {
+				fs.rmSync(userDir, { recursive: true, force: true });
+				fs.rmSync(backupDir, { recursive: true, force: true });
+			}
 		});
 	});
 

@@ -341,6 +341,11 @@
           "type": "boolean",
           "default": true,
           "description": "Inclui a lista de extensões instaladas pelo usuário na sincronização."
+        },
+        "agentecode.sync.syncClaudeConfig": {
+          "type": "boolean",
+          "default": false,
+          "description": "Inclui na sincronização o CLAUDE.md global e os arquivos de ~/.claude/commands, agents e skills (somente texto; arquivos com chaves ou tokens são pulados)."
         }
       }
     },
