@@ -18,6 +18,28 @@ function el(tag, cls, text) {
 	if (text !== undefined) { node.textContent = text; }
 	return node;
 }
+const STATE_ICONS = {
+	added: 'M11.5 1H3.5C2.122 1 1 2.122 1 3.5V11.5C1 12.878 2.122 14 3.5 14H11.5C12.878 14 14 12.878 14 11.5V3.5C14 2.122 12.878 1 11.5 1ZM13 11.5C13 12.327 12.327 13 11.5 13H3.5C2.673 13 2 12.327 2 11.5V3.5C2 2.673 2.673 2 3.5 2H11.5C12.327 2 13 2.673 13 3.5V11.5ZM11 7.5C11 7.776 10.776 8 10.5 8H8V10.5C8 10.776 7.776 11 7.5 11C7.224 11 7 10.776 7 10.5V8H4.5C4.224 8 4 7.776 4 7.5C4 7.224 4.224 7 4.5 7H7V4.5C7 4.224 7.224 4 7.5 4C7.776 4 8 4.224 8 4.5V7H10.5C10.776 7 11 7.224 11 7.5Z',
+	modified: 'M11 7.5C11 9.43 9.43 11 7.5 11C5.57 11 4 9.43 4 7.5C4 5.57 5.57 4 7.5 4C9.43 4 11 5.57 11 7.5ZM14 3.5V11.5C14 12.878 12.878 14 11.5 14H3.5C2.122 14 1 12.878 1 11.5V3.5C1 2.122 2.122 1 3.5 1H11.5C12.878 1 14 2.122 14 3.5ZM13 3.5C13 2.673 12.327 2 11.5 2H3.5C2.673 2 2 2.673 2 3.5V11.5C2 12.327 2.673 13 3.5 13H11.5C12.327 13 13 12.327 13 11.5V3.5Z',
+	deleted: 'M11.5 1H3.5C2.122 1 1 2.122 1 3.5V11.5C1 12.878 2.122 14 3.5 14H11.5C12.878 14 14 12.878 14 11.5V3.5C14 2.122 12.878 1 11.5 1ZM13 11.5C13 12.327 12.327 13 11.5 13H3.5C2.673 13 2 12.327 2 11.5V3.5C2 2.673 2.673 2 3.5 2H11.5C12.327 2 13 2.673 13 3.5V11.5ZM11 7.5C11 7.776 10.776 8 10.5 8H4.5C4.224 8 4 7.776 4 7.5C4 7.224 4.224 7 4.5 7H10.5C10.776 7 11 7.224 11 7.5Z'
+};
+const STATE_TITLES = { added: 'Arquivo novo', modified: 'Arquivo modificado', deleted: 'Arquivo exclu\\u00eddo' };
+function stateIcon(status) {
+	const svgNs = 'http://www.w3.org/2000/svg';
+	const svg = document.createElementNS(svgNs, 'svg');
+	svg.setAttribute('viewBox', '0 0 16 16');
+	svg.setAttribute('width', '16');
+	svg.setAttribute('height', '16');
+	svg.setAttribute('class', 'state ' + status);
+	svg.setAttribute('fill', 'currentColor');
+	const title = document.createElementNS(svgNs, 'title');
+	title.textContent = STATE_TITLES[status] || '';
+	svg.appendChild(title);
+	const path = document.createElementNS(svgNs, 'path');
+	path.setAttribute('d', STATE_ICONS[status] || STATE_ICONS.modified);
+	svg.appendChild(path);
+	return svg;
+}
 function send(message) { vscode.postMessage(message); }
 function button(cls, label, title, onClick) {
 	const b = el('button', cls, label);
@@ -73,9 +95,7 @@ function render(state) {
 		const chevron = button('chev', item.expanded ? '\\u25be' : '\\u25b8', 'Mostrar os trechos', () => send({ type: 'toggle', file: item.file }));
 		if (item.status !== 'modified') { chevron.style.visibility = 'hidden'; }
 		row.appendChild(chevron);
-		const stateIcon = el('span', 'state ' + item.status, item.status === 'added' ? '+' : item.status === 'deleted' ? '−' : '●');
-		stateIcon.title = item.status === 'added' ? 'Arquivo novo' : item.status === 'deleted' ? 'Arquivo excluído' : 'Arquivo modificado';
-		row.appendChild(stateIcon);
+		row.appendChild(stateIcon(item.status));
 		const badge = el('span', 'badge', item.badge.text);
 		badge.style.background = item.badge.background;
 		badge.style.color = item.badge.color;
@@ -149,9 +169,10 @@ button{font:inherit;cursor:pointer;color:inherit;background:transparent;border:0
 .row:hover,.hunk:hover{background:var(--vscode-list-hoverBackground)}
 .row.reviewed{opacity:.55}
 .chev{width:16px;padding:0;color:var(--vscode-descriptionForeground)}
-.state{width:14px;height:14px;box-sizing:border-box;border:1.5px solid;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;line-height:1;flex:none}
-.state.added{color:#56d364}.state.modified{color:#e3b341}.state.deleted{color:#ff7b72}
-.state.modified{font-size:8px}
+.state{flex:none}
+.state.added{color:var(--vscode-gitDecoration-addedResourceForeground,#56d364)}
+.state.modified{color:var(--vscode-gitDecoration-modifiedResourceForeground,#e2c08d)}
+.state.deleted{color:var(--vscode-gitDecoration-deletedResourceForeground,#ff7b72)}
 .badge{min-width:26px;text-align:center;font-size:10px;font-weight:700;border-radius:3px;padding:1px 3px;line-height:1.3}
 .name{font-weight:600;cursor:pointer;white-space:nowrap}
 .name:hover{text-decoration:underline}
