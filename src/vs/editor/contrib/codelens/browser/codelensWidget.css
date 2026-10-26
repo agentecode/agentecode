@@ -88,14 +88,15 @@
 }
 
 .monaco-editor .codelens-decoration > a.agentecode-lens-button-undo {
-	background-color: transparent;
-	border-color: var(--vscode-editorCodeLens-foreground);
-	color: var(--vscode-editorCodeLens-foreground) !important;
+	background-color: rgba(248, 81, 73, 0.18);
+	border-color: rgba(248, 81, 73, 0.55);
+	color: #ff8b84 !important;
 }
 
 .monaco-editor .codelens-decoration > a.agentecode-lens-button-undo:hover {
-	background-color: var(--vscode-toolbar-hoverBackground);
-	color: var(--vscode-editorLink-activeForeground) !important;
+	background-color: rgba(248, 81, 73, 0.32);
+	border-color: #f85149;
+	color: #ffb3ae !important;
 }
 
 @keyframes fadein {
