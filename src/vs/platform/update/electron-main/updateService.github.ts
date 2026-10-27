@@ -51,9 +51,15 @@ const errServerStatus = (status: number | undefined) => `O servidor respondeu ${
 // allow-any-unicode-next-line
 const MSG_CHECK_FAILED = 'Não foi possível verificar atualizações agora. Tente novamente em alguns minutos.';
 // allow-any-unicode-next-line
+const MSG_AUTO_UPDATE_UNAVAILABLE = 'A atualização automática não funcionou.';
+// allow-any-unicode-next-line
 const MSG_DOWNLOAD_FAILED = 'Não foi possível baixar a atualização dentro da IDE.';
 // allow-any-unicode-next-line
-const MSG_OPENING_PAGE = 'A página da nova versão será aberta no navegador para você baixar o instalador.';
+const MSG_NO_INSTALLER = 'O instalador desta versão ainda não está disponível para atualização automática. Você pode baixá-lo pelo site.';
+// allow-any-unicode-next-line
+const BUTTON_OPEN_PAGE = 'Baixar pelo site';
+// allow-any-unicode-next-line
+const BUTTON_CANCEL = 'Cancelar';
 
 /**
  * Serviço de atualização do AgenteCode: consulta a última Release estável no GitHub e, havendo versão
@@ -239,7 +245,12 @@ export class GitHubUpdateService extends Disposable implements IUpdateService {
 		const update = this.pending;
 
 		if (!this.canInstallInApp(update)) {
-			await this.openReleasePage(update);
+			if (process.platform === 'win32') {
+				// no Windows o normal é baixar e instalar dentro da IDE; sem instalador na Release, só oferece o site
+				await this.offerReleasePage(update, MSG_NO_INSTALLER);
+			} else {
+				await this.openReleasePage(update);
+			}
 			return;
 		}
 
@@ -252,11 +263,21 @@ export class GitHubUpdateService extends Disposable implements IUpdateService {
 			this.logService.error('update#downloadUpdate(): failed', error);
 			this.installerPath = undefined;
 			this.setState(State.AvailableForDownload(update));
-			await this.dialogMainService.showMessageBox({
-				type: 'warning',
-				message: MSG_DOWNLOAD_FAILED,
-				detail: `${error instanceof Error ? error.message : String(error)}\n\n${MSG_OPENING_PAGE}`,
-			});
+			await this.offerReleasePage(update, `${MSG_DOWNLOAD_FAILED}\n\n${error instanceof Error ? error.message : String(error)}`);
+		}
+	}
+
+	/** Só depois que o automático falha: pergunta se o usuário quer baixar o instalador pelo site. */
+	private async offerReleasePage(update: IGitHubUpdate, detail: string): Promise<void> {
+		const { response } = await this.dialogMainService.showMessageBox({
+			type: 'warning',
+			message: MSG_AUTO_UPDATE_UNAVAILABLE,
+			detail,
+			buttons: [BUTTON_OPEN_PAGE, BUTTON_CANCEL],
+			defaultId: 0,
+			cancelId: 1,
+		});
+		if (response === 0) {
 			await this.openReleasePage(update);
 		}
 	}

@@ -215,6 +215,7 @@ import './contrib/preferences/browser/preferencesSearch.js';
 
 // Performance
 import './contrib/performance/browser/performance.contribution.js';
+import './contrib/agentecodeLayout/browser/agentecodeLayout.contribution.js';
 
 // Notebook
 import './contrib/notebook/browser/notebook.contribution.js';

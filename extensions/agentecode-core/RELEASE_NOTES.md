@@ -2,6 +2,15 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.13 - 27/10/2026
+
+Layouts salvos e atualização automática mais clara.
+
+- **Salvar e restaurar o layout da janela:** guarda a largura das barras laterais (inclusive a do Claude Code) e do painel, para você não perder o arranjo ao trocar de monitor. Há três ações: **Salvar Layout Atual** (`Ctrl+Alt+Shift+S`), **Restaurar Último Layout Salvo** (`Ctrl+Alt+Shift+R`, sem lista e sem pergunta) e **Restaurar Layout...** (`Ctrl+Alt+Shift+L`, escolhe numa lista). Elas estão no menu da engrenagem, em dois ícones na barra de status (perto do Sync) e na paleta de comandos.
+- **Um layout por monitor:** salvar usa a resolução da tela como nome. Ao abrir a IDE ou mover a janela para outro monitor, o layout daquela tela é aplicado sozinho (desligue em `agentecode.layout.autoRestore`). Há também "Salvar Layout Com Nome..." para vários layouts.
+- **Sincroniza com o Gist:** os layouts ficam no `settings.json` (`agentecode.layout.saved`), que o sincronismo já leva.
+- **Atualização no Windows:** o normal é baixar e instalar dentro da IDE. Só quando isso falha aparece a janela "A atualização automática não funcionou", com o motivo e os botões **Baixar pelo site** e **Cancelar**. O site não abre mais sozinho.
+
 ## v1.0.12 - 27/10/2026
 
 A verificação de atualização ficou mais confiável.
