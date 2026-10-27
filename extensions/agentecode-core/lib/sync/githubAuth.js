@@ -6,6 +6,7 @@
 'use strict';
 
 const config = require('./config');
+const { t } = require('../i18n');
 
 class AuthError extends Error {
 	constructor(message, code) {
@@ -16,21 +17,21 @@ class AuthError extends Error {
 }
 
 class TokenExpiredError extends AuthError {
-	constructor(message = 'O código de autorização expirou. Por favor, tente novamente.') {
+	constructor(message = t('The authorization code expired. Please try again.')) {
 		super(message, 'EXPIRED_TOKEN');
 		this.name = 'TokenExpiredError';
 	}
 }
 
 class AccessDeniedError extends AuthError {
-	constructor(message = 'A autorização foi cancelada no navegador.') {
+	constructor(message = t('The authorization was cancelled in the browser.')) {
 		super(message, 'ACCESS_DENIED');
 		this.name = 'AccessDeniedError';
 	}
 }
 
 class NetworkError extends AuthError {
-	constructor(message = 'Não foi possível conectar ao GitHub. Verifique sua conexão.') {
+	constructor(message = t('Could not connect to GitHub. Check your connection.')) {
 		super(message, 'NETWORK_ERROR');
 		this.name = 'NetworkError';
 	}
@@ -92,12 +93,12 @@ async function startDeviceFlow(options = {}) {
 			signal: combineSignals(30000, options.signal)
 		});
 	} catch (err) {
-		throw new NetworkError(`Falha na conexão com o GitHub: ${err.message}`);
+		throw new NetworkError(t('Connection to GitHub failed: {0}', err.message));
 	}
 
 	if (!response.ok) {
 		const text = await response.text().catch(() => '');
-		throw new AuthError(`GitHub retornou erro HTTP ${response.status} ao solicitar código: ${text}`, 'HTTP_ERROR');
+		throw new AuthError(t('GitHub returned HTTP error {0} when requesting the code: {1}', response.status, text), 'HTTP_ERROR');
 	}
 
 	const data = await response.json();
@@ -145,7 +146,7 @@ async function pollForToken(options) {
 		await sleep(interval * 1000);
 
 		if (options.signal?.aborted) {
-			const err = new Error('Operação cancelada.');
+			const err = new Error(t('Operation cancelled.'));
 			err.name = 'AbortError';
 			throw err;
 		}
@@ -174,7 +175,7 @@ async function pollForToken(options) {
 			if (Date.now() < expiresAt) {
 				continue;
 			}
-			throw new NetworkError(`Falha na conexão ao consultar token: ${err.message}`);
+			throw new NetworkError(t('Connection failed while checking the token: {0}', err.message));
 		}
 
 		// Tolera respostas 5xx transitórias do GitHub (E5.3)
@@ -190,7 +191,7 @@ async function pollForToken(options) {
 		if (data.access_token) {
 			const scope = data.scope || '';
 			if (!scope.includes('gist')) {
-				throw new AuthError('O token retornado não contém a permissão necessária (gist).', 'INSUFFICIENT_SCOPE');
+				throw new AuthError(t('The returned token does not have the required permission (gist).'), 'INSUFFICIENT_SCOPE');
 			}
 			return {
 				accessToken: data.access_token,
@@ -219,10 +220,10 @@ async function pollForToken(options) {
 			throw new AccessDeniedError();
 		}
 
-		throw new AuthError(data.error_description || data.error || 'Erro desconhecido na autorização.', data.error);
+		throw new AuthError(data.error_description || data.error || t('Unknown authorization error.'), data.error);
 	}
 
-	throw new TokenExpiredError('O tempo para autorizar no navegador expirou.');
+	throw new TokenExpiredError(t('The time to authorize in the browser expired.'));
 }
 
 /**
@@ -250,15 +251,15 @@ async function getUser(token, options = {}) {
 			signal: combineSignals(30000, options.signal)
 		});
 	} catch (err) {
-		throw new NetworkError(`Falha ao obter perfil do usuário: ${err.message}`);
+		throw new NetworkError(t('Failed to get the user profile: {0}', err.message));
 	}
 
 	if (response.status === 401) {
-		throw new AuthError('Token revogado ou inválido (401).', 'UNAUTHORIZED');
+		throw new AuthError(t('Token revoked or invalid (401).'), 'UNAUTHORIZED');
 	}
 
 	if (!response.ok) {
-		throw new AuthError(`Erro ao consultar usuário: HTTP ${response.status}`, 'HTTP_ERROR');
+		throw new AuthError(t('Error querying the user: HTTP {0}', response.status), 'HTTP_ERROR');
 	}
 
 	return response.json();

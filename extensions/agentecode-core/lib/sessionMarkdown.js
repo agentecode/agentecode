@@ -9,6 +9,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const readline = require('readline');
+const { t, getLanguage } = require('./i18n');
 
 /** Pasta de dados do Claude Code (respeita CLAUDE_CONFIG_DIR). */
 function claudeConfigDir() {
@@ -107,7 +108,7 @@ async function readSessionSummary(file) {
 			firstPrompt ??= firstText(entry.message?.content).trim().split('\n')[0];
 		}
 	}, line => line.includes('"type":"ai-title"') || line.includes('"type":"user"'));
-	return { title: title || firstPrompt?.slice(0, 80) || 'Sessão sem título', cwd };
+	return { title: title || firstPrompt?.slice(0, 80) || t('Untitled session'), cwd };
 }
 
 /** Cerca de código com mais crases do que qualquer trecho do conteúdo. */
@@ -122,7 +123,7 @@ function codeBlock(text, lang = '') {
 }
 
 function truncate(text, max) {
-	return text.length > max ? `${text.slice(0, max)}\n… (${text.length - max} caracteres omitidos)` : text;
+	return text.length > max ? `${text.slice(0, max)}\n${t('… ({0} characters omitted)', text.length - max)}` : text;
 }
 
 /** Resumo de uma chamada de ferramenta em uma linha. */
@@ -141,14 +142,14 @@ function toolResultText(content) {
 		return content;
 	}
 	if (Array.isArray(content)) {
-		return content.map(b => b?.type === 'text' ? b.text : `[${b?.type ?? 'conteúdo'}]`).join('\n');
+		return content.map(b => b?.type === 'text' ? b.text : `[${b?.type ?? t('content')}]`).join('\n');
 	}
 	return '';
 }
 
 function formatTime(timestamp) {
 	const date = new Date(timestamp);
-	return isNaN(date.getTime()) ? '' : date.toLocaleString('pt-BR');
+	return isNaN(date.getTime()) ? '' : date.toLocaleString(getLanguage() === 'pt' ? 'pt-BR' : 'en-US');
 }
 
 /**
@@ -167,19 +168,19 @@ function sessionToMarkdown(entries, options = {}) {
 	const branch = [...messages].reverse().find(m => m.gitBranch)?.gitBranch;
 	const prompts = messages.filter(m => m.type === 'user' && firstText(m.message.content).trim()).length;
 
-	const out = [`# ${options.title || 'Sessão do agente'}`, ''];
+	const out = [`# ${options.title || t('Agent session')}`, ''];
 	const meta = [
-		['Sessão', options.sessionId],
-		['Projeto', first.cwd && `\`${first.cwd}\``],
+		[t('Session'), options.sessionId],
+		[t('Project'), first.cwd && `\`${first.cwd}\``],
 		['Branch', branch && `\`${branch}\``],
-		['Modelo', models.join(', ')],
-		['Período', stamps.length ? `${formatTime(stamps[0])} → ${formatTime(stamps[stamps.length - 1])}` : ''],
-		['Mensagens do usuário', String(prompts)],
+		[t('Model'), models.join(', ')],
+		[t('Period'), stamps.length ? `${formatTime(stamps[0])} → ${formatTime(stamps[stamps.length - 1])}` : ''],
+		[t('User messages'), String(prompts)],
 	].filter(([, value]) => value);
 	for (const [key, value] of meta) {
 		out.push(`- **${key}:** ${value}`);
 	}
-	out.push('', `_Exportado do AgenteCode em ${formatTime(Date.now())}._`, '', '---', '');
+	out.push('', t('_Exported from AgenteCode on {0}._', formatTime(Date.now())), '', '---', '');
 
 	/** @type {'user' | 'assistant' | undefined} */
 	let speaker;
@@ -187,7 +188,7 @@ function sessionToMarkdown(entries, options = {}) {
 		if (role !== speaker) {
 			speaker = role;
 			const when = formatTime(timestamp);
-			out.push(`## ${role === 'user' ? 'Usuário' : 'Claude'}${when ? ` · ${when}` : ''}`, '');
+			out.push(`## ${role === 'user' ? t('User') : 'Claude'}${when ? ` · ${when}` : ''}`, '');
 		}
 	};
 
@@ -207,7 +208,7 @@ function sessionToMarkdown(entries, options = {}) {
 				}
 				case 'image':
 					speakerHeading(message.type, message.timestamp);
-					out.push('_[imagem anexada]_', '');
+					out.push(t('_[attached image]_'), '');
 					break;
 				case 'tool_use':
 					speakerHeading('assistant', message.timestamp);
@@ -219,8 +220,8 @@ function sessionToMarkdown(entries, options = {}) {
 					}
 					const text = toolResultText(block.content).trim();
 					if (text) {
-						const status = block.is_error ? 'erro' : 'resultado';
-						out.push(`<details><summary>${status} (${text.length} caracteres)</summary>`, '', codeBlock(truncate(text, maxToolResultChars)), '', '</details>', '');
+						const status = block.is_error ? t('error') : t('result');
+						out.push(`<details><summary>${t('{0} ({1} characters)', status, text.length)}</summary>`, '', codeBlock(truncate(text, maxToolResultChars)), '', '</details>', '');
 					}
 					break;
 				}

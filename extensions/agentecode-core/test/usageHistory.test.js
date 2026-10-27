@@ -111,4 +111,18 @@ describe('Historico de uso e custo', () => {
 		assert.ok(!html.includes('<script>alert(1)'));
 		assert.ok(html.includes('nonce-abc'));
 	});
+
+	test('a tela sai em ingles por padrao e em portugues com o idioma pt', async () => {
+		const i18n = require('../lib/i18n');
+		const entries = await history.loadHistory({ claudeDir });
+		const summary = history.summarize(entries, { now: new Date(2026, 9, 21, 18, 0, 0).getTime(), days: 30 });
+		const options = { today: '2026-10-21', nonce: 'abc', cspSource: 'vscode-resource:' };
+		assert.ok(renderHistoryHtml(summary, options).includes('Usage and cost history'));
+		i18n.setLanguage('pt');
+		try {
+			assert.ok(renderHistoryHtml(summary, options).includes('Histórico de uso e custo'));
+		} finally {
+			i18n.setLanguage('en');
+		}
+	});
 });

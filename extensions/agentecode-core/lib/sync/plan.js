@@ -7,6 +7,7 @@
 
 const { sha256 } = require('./snapshot');
 const config = require('./config');
+const { t } = require('../i18n');
 
 /**
  * Calcula o hash composto do conteudo remoto (ignora manifesto e README).
@@ -83,7 +84,7 @@ function createSyncPlan({
 	if (remoteOwner && currentLogin) {
 		if (remoteOwner.trim().toLowerCase() !== currentLogin.trim().toLowerCase()) {
 			isThirdParty = true;
-			warning = 'Este Gist não é seu. Configurações de terceiros podem executar programas e instalar extensões.';
+			warning = t('This Gist is not yours. Third-party settings can run programs and install extensions.');
 		}
 	}
 
@@ -98,7 +99,7 @@ function createSyncPlan({
 			filesToUpload,
 			fileDiffs: [],
 			extensionsDiff: { toInstall: [], alreadyInstalled: localSnapshot.extensions, localOnly: [] },
-			summary: 'Primeiro envio de configurações para o GitHub.',
+			summary: t('First upload of settings to GitHub.'),
 			isThirdParty: false,
 			canAutoSync: true,
 			warning: null
@@ -188,7 +189,7 @@ function createSyncPlan({
 			fileDiffs,
 			extensionsDiff,
 			filesToUpload: [],
-			summary: 'Gist existente encontrado. Recomendado baixar primeiro.',
+			summary: t('Existing Gist found. Downloading first is recommended.'),
 			isThirdParty,
 			canAutoSync: !isThirdParty,
 			requiresThirdPartyConfirmation: isThirdParty && !isConfirmedThirdParty,
@@ -227,16 +228,16 @@ function createSyncPlan({
 
 	if (!localChanged && !remoteChanged) {
 		action = 'nothing';
-		summary = 'Nenhuma mudança detectada (tudo sincronizado).';
+		summary = t('No changes detected (everything is in sync).');
 	} else if (localChanged && !remoteChanged) {
 		action = 'upload';
-		summary = `${filesToUpload.length} arquivo(s) modificado(s) localmente para enviar.`;
+		summary = t('{0} file(s) modified locally to upload.', filesToUpload.length);
 	} else if (!localChanged && remoteChanged) {
 		action = 'notifyDownload';
-		summary = 'Existem configurações mais novas no GitHub prontas para download.';
+		summary = t('There are newer settings on GitHub ready to download.');
 	} else {
 		action = 'conflict';
-		summary = 'As configurações mudaram neste computador e também no GitHub (conflito).';
+		summary = t('Settings changed on this computer and on GitHub as well (conflict).');
 	}
 
 	return {

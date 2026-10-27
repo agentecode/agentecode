@@ -9,20 +9,22 @@ const vscode = require('vscode');
 const path = require('path');
 const fs = require('fs');
 
+const { t } = require('../i18n');
+
 /**
  * Exibe a caixa de dialogo modal de consentimento inicial sobre a privacidade do Gist.
  * @returns {Promise<boolean>} true se o usuario clicou em Continuar
  */
 async function showConsentModal() {
-	const message = 'O AgenteCode vai guardar suas configurações num Gist secreto da sua conta do GitHub. ' +
-		'Quem tiver o endereço do Gist consegue ler, então nada sensível será enviado (chaves e caminhos do computador ficam de fora). Continuar?';
+	const message = t('AgenteCode will store your settings in a secret Gist on your GitHub account. Anyone who has the Gist address can read it, so nothing sensitive is sent (keys and computer paths are left out). Continue?');
+	const continueLabel = t('Continue');
 
 	const selection = await vscode.window.showInformationMessage(
 		message,
 		{ modal: true },
-		'Continuar'
+		continueLabel
 	);
-	return selection === 'Continuar';
+	return selection === continueLabel;
 }
 
 /**
@@ -32,13 +34,14 @@ async function showConsentModal() {
  * @returns {Promise<'copied' | 'cancelled'>}
  */
 async function showDeviceCodeNotification(userCode, verificationUri) {
+	const copyLabel = t('Copy Code and Open GitHub');
 	const action = await vscode.window.showInformationMessage(
-		`Código de ativação do GitHub: ${userCode}`,
+		t('GitHub activation code: {0}', userCode),
 		{ modal: true },
-		'Copiar código e abrir o GitHub'
+		copyLabel
 	);
 
-	if (action === 'Copiar código e abrir o GitHub') {
+	if (action === copyLabel) {
 		await vscode.env.clipboard.writeText(userCode);
 		await vscode.env.openExternal(vscode.Uri.parse(verificationUri));
 		return 'copied';
@@ -62,70 +65,70 @@ async function showQuickPickMenu({ isConnected, userLogin = '', isAutoSync = tru
 	if (!isConnected) {
 		items.push({
 			id: 'connect_upload',
-			label: '$(cloud-upload) Conectar ao GitHub e enviar minhas configurações',
-			description: 'Cria um Gist secreto com suas configurações atuais'
+			label: t('$(cloud-upload) Connect to GitHub and Upload My Settings'),
+			description: t('Creates a secret Gist with your current settings')
 		});
 		items.push({
 			id: 'connect_download',
-			label: '$(cloud-download) Baixar configurações de outro computador',
-			description: 'Conecta e aplica configurações de um Gist existente'
+			label: t('$(cloud-download) Download Settings from Another Computer'),
+			description: t('Connects and applies settings from an existing Gist')
 		});
 		items.push({
 			id: 'guide',
-			label: '$(book) Ver guia de sincronização',
-			description: 'Passo a passo explicativo ilustrado'
+			label: t('$(book) View Sync Guide'),
+			description: t('Illustrated step-by-step walkthrough')
 		});
 	} else {
 		items.push({
 			id: 'upload',
-			label: '$(cloud-upload) Enviar agora',
-			description: lastSyncText ? `Último envio: ${lastSyncText}` : 'Atualiza o Gist no GitHub com seus arquivos locais'
+			label: t('$(cloud-upload) Upload Now'),
+			description: lastSyncText ? t('Last upload: {0}', lastSyncText) : t('Updates the Gist on GitHub with your local files')
 		});
 		items.push({
 			id: 'download',
-			label: '$(cloud-download) Baixar do GitHub...',
-			description: 'Compara com o Gist e aplica as atualizações'
+			label: t('$(cloud-download) Download from GitHub...'),
+			description: t('Compares with the Gist and applies the updates')
 		});
 		items.push({
 			id: 'copy_url',
-			label: '$(link) Copiar URL do Gist',
-			description: 'Copia o link direto para a área de transferência'
+			label: t('$(link) Copy Gist URL'),
+			description: t('Copies the direct link to the clipboard')
 		});
 		items.push({
 			id: 'open_gist',
-			label: '$(globe) Abrir Gist no navegador',
-			description: 'Visualiza seus arquivos salvos em gist.github.com'
+			label: t('$(globe) Open Gist in Browser'),
+			description: t('View your saved files on gist.github.com')
 		});
 		items.push({
 			id: 'toggle_auto',
-			label: `$(sync) Sincronização automática: ${isAutoSync ? 'Ligada' : 'Desligada'}`,
-			description: isAutoSync ? 'Clique para desativar o envio em segundo plano' : 'Clique para ativar o envio automático ao salvar'
+			label: t('$(sync) Auto sync: {0}', isAutoSync ? t('On') : t('Off')),
+			description: isAutoSync ? t('Click to turn off background uploads') : t('Click to turn on automatic upload on save')
 		});
 		items.push({
 			id: 'toggle_claude',
-			label: `$(sparkle) Configuração do Claude: ${isClaudeSync ? 'Ligada' : 'Desligada'}`,
-			description: isClaudeSync ? 'CLAUDE.md, comandos, agentes e skills vão junto' : 'Clique para levar também CLAUDE.md, comandos, agentes e skills'
+			label: t('$(sparkle) Claude configuration: {0}', isClaudeSync ? t('On') : t('Off')),
+			description: isClaudeSync ? t('CLAUDE.md, commands, agents and skills are included') : t('Click to also include CLAUDE.md, commands, agents and skills')
 		});
 		items.push({
 			id: 'undo',
-			label: '$(discard) Desfazer a última sincronização',
-			description: 'Restaura o backup anterior criado neste computador'
+			label: t('$(discard) Undo Last Sync'),
+			description: t('Restores the previous backup created on this computer')
 		});
 		items.push({
 			id: 'guide',
-			label: '$(book) Ver guia de sincronização',
-			description: 'Abre o guia de ajuda ao lado'
+			label: t('$(book) View Sync Guide'),
+			description: t('Opens the help guide to the side')
 		});
 		items.push({
 			id: 'disconnect',
-			label: `$(sign-out) Desconectar (${userLogin ? '@' + userLogin : 'GitHub'})`,
-			description: 'Remove o token de acesso local (mantém seu Gist no GitHub)'
+			label: t('$(sign-out) Disconnect ({0})', userLogin ? '@' + userLogin : 'GitHub'),
+			description: t('Removes the local access token (keeps your Gist on GitHub)')
 		});
 	}
 
 	const selected = await vscode.window.showQuickPick(items, {
-		placeHolder: isConnected ? `AgenteCode Sync (@${userLogin})` : 'AgenteCode Sync: Sincronização com o GitHub',
-		title: 'AgenteCode: Sincronização de Configurações'
+		placeHolder: isConnected ? `AgenteCode Sync (@${userLogin})` : t('AgenteCode Sync: GitHub Sync'),
+		title: t('AgenteCode: Settings Sync')
 	});
 
 	return selected ? selected.id : null;
@@ -136,17 +139,19 @@ async function showQuickPickMenu({ isConnected, userLogin = '', isAutoSync = tru
  * @returns {Promise<'download' | 'upload' | 'cancel'>}
  */
 async function showConflictModal() {
+	const downloadLabel = t('Download First');
+	const overwriteLabel = t('Overwrite GitHub with This Computer\'s Settings');
 	const choice = await vscode.window.showWarningMessage(
-		'As configurações mudaram neste computador e também no GitHub (conflito detectado).',
+		t('Settings changed on this computer and on GitHub as well (conflict detected).'),
 		{ modal: true },
-		'Baixar primeiro',
-		'Sobrescrever o GitHub com as deste computador'
+		downloadLabel,
+		overwriteLabel
 	);
 
-	if (choice === 'Baixar primeiro') {
+	if (choice === downloadLabel) {
 		return 'download';
 	}
-	if (choice === 'Sobrescrever o GitHub com as deste computador') {
+	if (choice === overwriteLabel) {
 		return 'upload';
 	}
 	return 'cancel';
@@ -159,12 +164,13 @@ async function showConflictModal() {
  */
 async function showPreviewConfirmation(plan) {
 	if (plan.warning) {
+		const riskLabel = t('I Understand the Risks and Want to Continue');
 		const alertChoice = await vscode.window.showWarningMessage(
 			plan.warning,
 			{ modal: true },
-			'Entendi os riscos e quero continuar'
+			riskLabel
 		);
-		if (alertChoice !== 'Entendi os riscos e quero continuar') {
+		if (alertChoice !== riskLabel) {
 			return false;
 		}
 	}
@@ -174,21 +180,20 @@ async function showPreviewConfirmation(plan) {
 	const totalItems = totalFiles + totalExt;
 
 	if (totalItems === 0) {
-		void vscode.window.showInformationMessage('Tudo sincronizado! Não há diferenças entre este computador e o GitHub.');
+		void vscode.window.showInformationMessage(t('Everything is in sync! There are no differences between this computer and GitHub.'));
 		return false;
 	}
 
-	const message = `Aplicar ${totalItems} item(ns) sincronizados? ` +
-		`(${totalFiles} arquivo(s), ${totalExt} extensão(ões)). ` +
-		'Uma cópia de segurança do que existe hoje será guardada e você poderá desfazer.';
+	const message = t('Apply {0} synced item(s)? ({1} file(s), {2} extension(s)). A backup of what exists today will be kept and you will be able to undo.', totalItems, totalFiles, totalExt);
+	const applyLabel = t('Apply Now');
 
 	const choice = await vscode.window.showInformationMessage(
 		message,
 		{ modal: true },
-		'Aplicar agora'
+		applyLabel
 	);
 
-	return choice === 'Aplicar agora';
+	return choice === applyLabel;
 }
 
 /**
@@ -205,7 +210,7 @@ async function showSummaryDocument(context, summaryMarkdown) {
 		await vscode.commands.executeCommand('markdown.showPreview', uri);
 	} catch {
 		// Se nao conseguir abrir o preview, exibe mensagem informativa
-		void vscode.window.showInformationMessage('Sincronização concluída com sucesso.');
+		void vscode.window.showInformationMessage(t('Sync completed successfully.'));
 	}
 }
 
@@ -215,22 +220,22 @@ async function showSummaryDocument(context, summaryMarkdown) {
  */
 function showFriendlyError(err) {
 	const code = err?.code;
-	let msg = err?.message || 'Ocorreu um erro desconhecido durante a sincronização.';
+	let msg = err?.message || t('An unknown error occurred during sync.');
 
 	if (code === 'NETWORK_ERROR' || err?.name === 'GistNetworkError') {
-		msg = 'Não foi possível conectar ao GitHub. Verifique sua conexão com a internet.';
+		msg = t('Could not connect to GitHub. Check your internet connection.');
 	} else if (code === 'TOKEN_REVOKED' || code === 'UNAUTHORIZED' || err?.status === 401) {
-		msg = 'Sua conexão com o GitHub expirou ou o token foi revogado. Por favor, conecte-se novamente.';
+		msg = t('Your GitHub connection expired or the token was revoked. Please connect again.');
 	} else if (code === 'FORBIDDEN') {
-		msg = 'Permissão insuficiente na conta do GitHub para gerenciar Gists. Tente desconectar e reconectar.';
+		msg = t('Insufficient permission on the GitHub account to manage Gists. Try disconnecting and reconnecting.');
 	} else if (code === 'RATE_LIMIT_EXCEEDED' || code === 'RATE_LIMIT') {
-		msg = 'Limite temporário de requisições ao GitHub atingido. Por favor, aguarde alguns minutos antes de tentar novamente.';
+		msg = t('Temporary GitHub request limit reached. Please wait a few minutes before trying again.');
 	} else if (code === 'TRUNCATED') {
-		msg = 'Um arquivo recebido do GitHub estava truncado e o conteúdo completo não pôde ser baixado com segurança.';
+		msg = t('A file received from GitHub was truncated and the full content could not be downloaded safely.');
 	} else if (code === 'EXPIRED_TOKEN') {
-		msg = 'O código de ativação expirou. Por favor, inicie a conexão novamente.';
+		msg = t('The activation code expired. Please start the connection again.');
 	} else if (code === 'ACCESS_DENIED') {
-		msg = 'A autorização foi cancelada no navegador.';
+		msg = t('The authorization was cancelled in the browser.');
 	}
 
 	void vscode.window.showErrorMessage(msg);
@@ -249,7 +254,7 @@ function createSyncStatusBar(context) {
 	statusBar.name = 'AgenteCode Sync';
 	statusBar.command = 'agentecode.sync.menu';
 	statusBar.text = '$(cloud) Sync';
-	statusBar.tooltip = 'AgenteCode: Sincronização de Configurações';
+	statusBar.tooltip = t('AgenteCode: Settings Sync');
 	statusBar.show();
 	context.subscriptions.push(statusBar);
 	return statusBar;
@@ -266,25 +271,25 @@ function updateStatusBar(statusBar, state, tooltipExtra = '') {
 		return;
 	}
 
-	const baseTooltip = 'AgenteCode: Sincronização com o GitHub';
+	const baseTooltip = t('AgenteCode: GitHub Sync');
 	const fullTooltip = tooltipExtra ? `${baseTooltip}\n${tooltipExtra}` : baseTooltip;
 
 	switch (state) {
 		case 'syncing':
-			statusBar.text = '$(sync~spin) Sincronizando...';
-			statusBar.tooltip = `${baseTooltip}\nSincronizando configurações...`;
+			statusBar.text = t('$(sync~spin) Syncing...');
+			statusBar.tooltip = `${baseTooltip}\n${t('Syncing settings...')}`;
 			break;
 		case 'synced':
-			statusBar.text = '$(check) Sincronizado';
+			statusBar.text = t('$(check) Synced');
 			statusBar.tooltip = fullTooltip;
 			break;
 		case 'conflict':
-			statusBar.text = '$(warning) Sync: Conflito';
-			statusBar.tooltip = `${baseTooltip}\nConflito detectado. Clique para resolver.`;
+			statusBar.text = t('$(warning) Sync: Conflict');
+			statusBar.tooltip = `${baseTooltip}\n${t('Conflict detected. Click to resolve.')}`;
 			break;
 		case 'offline':
-			statusBar.text = '$(cloud-offline) Sync: Offline';
-			statusBar.tooltip = `${baseTooltip}\nSem conexão com o GitHub.`;
+			statusBar.text = t('$(cloud-offline) Sync: Offline');
+			statusBar.tooltip = `${baseTooltip}\n${t('No connection to GitHub.')}`;
 			break;
 		default:
 			statusBar.text = '$(cloud) Sync';

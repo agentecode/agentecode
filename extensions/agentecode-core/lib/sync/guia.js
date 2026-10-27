@@ -9,6 +9,8 @@ const vscode = require('vscode');
 const path = require('path');
 const fs = require('fs');
 
+const { t, getLanguage } = require('../i18n');
+
 const GUIDE_SHOWN_KEY = 'agentecode.sync.guideShown';
 
 /**
@@ -35,9 +37,9 @@ async function markGuideShown(context) {
  * @param {vscode.ExtensionContext} context
  */
 async function openGuide(context) {
-	const guidePath = path.join(context.extensionPath, 'media', 'sync', 'guia.md');
+	const guidePath = path.join(context.extensionPath, 'media', 'sync', getLanguage() === 'pt' ? 'guia.pt-br.md' : 'guia.md');
 	if (!fs.existsSync(guidePath)) {
-		void vscode.window.showWarningMessage('Arquivo de guia de sincronização não encontrado.');
+		void vscode.window.showWarningMessage(t('Sync guide file not found.'));
 		return;
 	}
 

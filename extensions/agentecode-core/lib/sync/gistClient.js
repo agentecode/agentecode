@@ -6,6 +6,7 @@
 'use strict';
 
 const config = require('./config');
+const { t } = require('../i18n');
 
 class GistError extends Error {
 	constructor(message, code, status) {
@@ -17,7 +18,7 @@ class GistError extends Error {
 }
 
 class TokenRevokedError extends GistError {
-	constructor(message = 'Token de acesso revogado ou invalido (401).') {
+	constructor(message = t('Access token revoked or invalid (401).')) {
 		super(message, 'TOKEN_REVOKED', 401);
 		this.name = 'TokenRevokedError';
 	}
@@ -33,28 +34,28 @@ class RateLimitError extends GistError {
 }
 
 class GistNotFoundError extends GistError {
-	constructor(message = 'Gist nao encontrado no GitHub (404).') {
+	constructor(message = t('Gist not found on GitHub (404).')) {
 		super(message, 'NOT_FOUND', 404);
 		this.name = 'GistNotFoundError';
 	}
 }
 
 class GistValidationError extends GistError {
-	constructor(message = 'Dados invalidos para o Gist (422).') {
+	constructor(message = t('Invalid data for the Gist (422).')) {
 		super(message, 'VALIDATION_FAILED', 422);
 		this.name = 'GistValidationError';
 	}
 }
 
 class GistForbiddenError extends GistError {
-	constructor(message = 'Permissão insuficiente para acessar ou criar Gists no GitHub (403).', status = 403) {
+	constructor(message = t('Insufficient permission to access or create Gists on GitHub (403).'), status = 403) {
 		super(message, 'FORBIDDEN', status);
 		this.name = 'GistForbiddenError';
 	}
 }
 
 class GistNetworkError extends GistError {
-	constructor(message = 'Erro de conexao com o servico de Gists do GitHub.') {
+	constructor(message = t('Connection error with the GitHub Gists service.')) {
 		super(message, 'NETWORK_ERROR', 0);
 		this.name = 'GistNetworkError';
 	}
@@ -117,7 +118,7 @@ async function handleResponseErrors(response) {
 
 	if (response.status === 422) {
 		const text = await response.text().catch(() => '');
-		throw new GistValidationError(`Erro de validacao do Gist: ${text}`);
+		throw new GistValidationError(t('Gist validation error: {0}', text));
 	}
 
 	if (response.status === 429) {
@@ -125,7 +126,7 @@ async function handleResponseErrors(response) {
 		const resetHeader = Number(response.headers.get('x-ratelimit-reset')) || 0;
 		const resetSeconds = resetHeader ? Math.max(0, resetHeader - Math.floor(Date.now() / 1000)) : 0;
 		throw new RateLimitError(
-			'Limite de requisições ao GitHub atingido. Tente novamente em alguns minutos.',
+			t('GitHub request limit reached. Try again in a few minutes.'),
 			resetSeconds,
 			retryAfter
 		);
@@ -141,20 +142,20 @@ async function handleResponseErrors(response) {
 			const resetHeader = Number(response.headers.get('x-ratelimit-reset')) || 0;
 			const resetSeconds = resetHeader ? Math.max(0, resetHeader - Math.floor(Date.now() / 1000)) : 0;
 			throw new RateLimitError(
-				'Limite de requisições ao GitHub atingido. Tente novamente em alguns minutos.',
+				t('GitHub request limit reached. Try again in a few minutes.'),
 				resetSeconds,
 				retryAfter
 			);
 		}
 
 		throw new GistForbiddenError(
-			`Permissão insuficiente para acessar os Gists do GitHub: ${text || 'Acesso negado'}`,
+			t('Insufficient permission to access GitHub Gists: {0}', text || t('Access denied')),
 			response.status
 		);
 	}
 
 	const errorText = await response.text().catch(() => '');
-	throw new GistError(`GitHub retornou erro HTTP ${response.status}: ${errorText}`, 'HTTP_ERROR', response.status);
+	throw new GistError(t('GitHub returned HTTP error {0}: {1}', response.status, errorText), 'HTTP_ERROR', response.status);
 }
 
 /**
@@ -311,7 +312,7 @@ async function getGist(token, gistId, options = {}) {
 							fileObj.truncated = false;
 						} else {
 							throw new GistError(
-								`Falha ao recuperar o conteúdo completo do arquivo truncado '${name}': HTTP ${rawRes.status}`,
+								t("Failed to retrieve the full content of the truncated file '{0}': HTTP {1}", name, rawRes.status),
 								'TRUNCATED',
 								rawRes.status
 							);
@@ -321,7 +322,7 @@ async function getGist(token, gistId, options = {}) {
 							throw err;
 						}
 						throw new GistError(
-							`Falha de rede ao baixar arquivo truncado '${name}': ${err.message}`,
+							t("Network failure while downloading the truncated file '{0}': {1}", name, err.message),
 							'TRUNCATED',
 							0
 						);
@@ -330,7 +331,7 @@ async function getGist(token, gistId, options = {}) {
 
 				if (fileObj.truncated) {
 					throw new GistError(
-						`O arquivo '${name}' foi truncado pela API do GitHub e o conteúdo completo não pôde ser recuperado.`,
+						t("The file '{0}' was truncated by the GitHub API and the full content could not be retrieved.", name),
 						'TRUNCATED',
 						0
 					);

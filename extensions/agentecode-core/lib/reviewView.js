@@ -19,6 +19,7 @@ const { rewindToCheckpoint, undoLastRewind, saveUndoPoint } = require('./rewind'
 const { claudeConfigDir, projectSlug } = require('./sessionMarkdown');
 const gs = require('./gitSnapshot');
 const { TurnWatcher } = require('./turnWatcher');
+const { t, getLanguage } = require('./i18n');
 const { computeTerminalChanges } = require('./terminalChanges');
 
 const VIEW_ID = 'agentecode.review';
@@ -33,21 +34,28 @@ const KEEP_MARK = '\u2063';
 const UNDO_MARK = '\u2064';
 const LABEL_MARK = String.fromCharCode(0x2060);
 /** Caixa que aparece ao passar o mouse sobre o rotulo em italico (o rotulo nao e clicavel). */
-const LABEL_TOOLTIP = [
-	'Alterado pelo agente nesta conversa.',
+const LABEL_TOOLTIP = () => [
+	t('Changed by the agent in this conversation.'),
 	'',
-	'Alt+Y: manter este trecho',
-	'Alt+N: desfazer este trecho',
-	'Clique em +N −M para ver a diferença (antes ↔ agora).'
+	t('Alt+Y: keep this hunk'),
+	t('Alt+N: undo this hunk'),
+	t('Click +N −M to see the difference (before ↔ now).')
 ].join('\n');
 const REFRESH_MS = 15000;
 const EMPTY = 'none';
 
 const STATUS = {
-	modified: { text: 'modificado', icon: 'diff-modified', color: 'gitDecoration.modifiedResourceForeground' },
-	added: { text: 'novo', icon: 'diff-added', color: 'gitDecoration.addedResourceForeground' },
-	deleted: { text: 'excluído', icon: 'diff-removed', color: 'gitDecoration.deletedResourceForeground' }
+	modified: { icon: 'diff-modified', color: 'gitDecoration.modifiedResourceForeground' },
+	added: { icon: 'diff-added', color: 'gitDecoration.addedResourceForeground' },
+	deleted: { icon: 'diff-removed', color: 'gitDecoration.deletedResourceForeground' }
 };
+
+/** Texto do estado no idioma atual (avaliado no uso, pois o idioma e definido depois dos require). */
+const statusText = status => (status === 'added' ? t('new') : status === 'deleted' ? t('deleted') : t('modified'));
+/** Idioma das datas. */
+const dateLocale = () => (getLanguage() === 'pt' ? 'pt-BR' : 'en-US');
+/** Ponto de comparacao em texto. */
+const baseLabel = base => (base ? t('before "{0}"', base.prompt.slice(0, 40)) : t('the start of the conversation'));
 
 /** Chave de comparacao de caminhos (no Windows nao diferencia maiusculas). */
 const keyOf = file => (process.platform === 'win32' ? path.normalize(file).toLowerCase() : path.normalize(file));
@@ -114,11 +122,11 @@ function registerReviewView(context) {
 				const root = roots().find(r => isInsideAny(element.file, [r]));
 				const relDir = root ? path.dirname(path.relative(root, element.file)) : path.dirname(element.file);
 				const counts = element.added === null ? '' : ` +${element.added} −${element.removed}`;
-				item.description = `${relDir === '.' ? '' : `${relDir}  `}${info.text}${counts}${element.source === 'terminal' ? ' · terminal' : ''}`;
+				item.description = `${relDir === '.' ? '' : `${relDir}  `}${statusText(element.status)}${counts}${element.source === 'terminal' ? ' · terminal' : ''}`;
 				item.iconPath = new vscode.ThemeIcon(info.icon, new vscode.ThemeColor(info.color));
 				item.contextValue = 'reviewFile';
-				item.tooltip = `${element.file}\n${info.text}${counts}`;
-				item.command = { command: 'agentecode.review.open', title: 'Ver diferença', arguments: [element] };
+				item.tooltip = `${element.file}\n${statusText(element.status)}${counts}`;
+				item.command = { command: 'agentecode.review.open', title: t('View diff'), arguments: [element] };
 				return item;
 			}
 		},
@@ -127,7 +135,7 @@ function registerReviewView(context) {
 
 	// --- Controle de codigo-fonte: barras na margem do editor, lista no painel Ctrl+Shift+G ---
 	// Sem pasta raiz: o nome na lista de repositorios e o do proprio painel, e a margem vale para qualquer arquivo
-	const scm = vscode.scm.createSourceControl(SCM_ID, 'Alterações do agente');
+	const scm = vscode.scm.createSourceControl(SCM_ID, t('Agent changes'));
 	scm.inputBox.visible = false;
 	scm.quickDiffProvider = {
 		provideOriginalResource: uri => {
@@ -135,14 +143,14 @@ function registerReviewView(context) {
 			return item && item.status !== 'deleted' && session ? backupUri(session.id, item.file, item.backup, item.source === 'terminal') : undefined;
 		}
 	};
-	const scmGroup = scm.createResourceGroup('changes', 'Alterações do agente');
+	const scmGroup = scm.createResourceGroup('changes', t('Agent changes'));
 	scmGroup.hideWhenEmpty = true;
 
 	// --- Marca "IA" no Explorer ---
 	const decorations = {
 		onDidChangeFileDecorations: decorationEmitter.event,
 		provideFileDecoration: uri => (uri.scheme === 'file' && pendingByKey.has(keyOf(uri.fsPath))
-			? { badge: 'IA', tooltip: 'Alterado pelo agente e ainda não revisado', color: new vscode.ThemeColor('gitDecoration.modifiedResourceForeground'), propagate: false }
+			? { badge: t('AI'), tooltip: t('Changed by the agent and not yet reviewed'), color: new vscode.ThemeColor('gitDecoration.modifiedResourceForeground'), propagate: false }
 			: undefined)
 	};
 
@@ -187,20 +195,20 @@ function registerReviewView(context) {
 				}
 				const top = new vscode.Range(0, 0, 0, 0);
 				return [
-					new vscode.CodeLens(top, { title: `$(check) Manter${KEEP_MARK}`, tooltip: 'Manter o arquivo novo', command: 'agentecode.review.keep', arguments: [item] }),
-					new vscode.CodeLens(top, { title: `$(trash) Excluir${UNDO_MARK}`, tooltip: 'Excluir o arquivo novo', command: 'agentecode.review.revert', arguments: [item] }),
-					new vscode.CodeLens(top, { title: `$(diff) +${hunks[0].afterLines.length} −0`, tooltip: 'Ver o arquivo', command: 'agentecode.review.open', arguments: [item] }),
-					new vscode.CodeLens(top, { title: `✦ agente · arquivo novo${LABEL_MARK}`, tooltip: LABEL_TOOLTIP, command: 'agentecode.review.open', arguments: [item] })
+					new vscode.CodeLens(top, { title: `$(check) ${t('Keep')}${KEEP_MARK}`, tooltip: t('Keep the new file'), command: 'agentecode.review.keep', arguments: [item] }),
+					new vscode.CodeLens(top, { title: `$(trash) ${t('Delete')}${UNDO_MARK}`, tooltip: t('Delete the new file'), command: 'agentecode.review.revert', arguments: [item] }),
+					new vscode.CodeLens(top, { title: `$(diff) +${hunks[0].afterLines.length} −0`, tooltip: t('View the file'), command: 'agentecode.review.open', arguments: [item] }),
+					new vscode.CodeLens(top, { title: `✦ ${t('agent · new file')}${LABEL_MARK}`, tooltip: LABEL_TOOLTIP(), command: 'agentecode.review.open', arguments: [item] })
 				];
 			}
 			return hunks.flatMap(hunk => {
 				const line = Math.min(hunk.modStart, Math.max(0, document.lineCount - 1));
 				const range = new vscode.Range(line, 0, line, 0);
 				return [
-					new vscode.CodeLens(range, { title: `$(check) Manter${KEEP_MARK}`, tooltip: 'Manter este trecho (Alt+Y)', command: 'agentecode.review.keepHunk', arguments: [document.uri, hunk.key] }),
-					new vscode.CodeLens(range, { title: `$(discard) Desfazer${UNDO_MARK}`, tooltip: 'Desfazer este trecho (Alt+N)', command: 'agentecode.review.undoHunk', arguments: [document.uri, hunk.key] }),
-					new vscode.CodeLens(range, { title: `$(diff) +${hunk.afterLines.length} −${hunk.beforeLines.length}`, tooltip: 'Ver a diferença (antes ↔ agora)', command: 'agentecode.review.open', arguments: [item] }),
-					new vscode.CodeLens(range, { title: `✦ agente · Alt+Y manter · Alt+N desfazer${LABEL_MARK}`, tooltip: LABEL_TOOLTIP, command: 'agentecode.review.open', arguments: [item] })
+					new vscode.CodeLens(range, { title: `$(check) ${t('Keep')}${KEEP_MARK}`, tooltip: t('Keep this hunk (Alt+Y)'), command: 'agentecode.review.keepHunk', arguments: [document.uri, hunk.key] }),
+					new vscode.CodeLens(range, { title: `$(discard) ${t('Undo')}${UNDO_MARK}`, tooltip: t('Undo this hunk (Alt+N)'), command: 'agentecode.review.undoHunk', arguments: [document.uri, hunk.key] }),
+					new vscode.CodeLens(range, { title: `$(diff) +${hunk.afterLines.length} −${hunk.beforeLines.length}`, tooltip: t('View the difference (before ↔ now)'), command: 'agentecode.review.open', arguments: [item] }),
+					new vscode.CodeLens(range, { title: `✦ ${t('agent · Alt+Y keep · Alt+N undo')}${LABEL_MARK}`, tooltip: LABEL_TOOLTIP(), command: 'agentecode.review.open', arguments: [item] })
 				];
 			});
 		}
@@ -234,13 +242,13 @@ function registerReviewView(context) {
 		editor.setDecorations(hintType, hunks.map(hunk => {
 			const line = Math.min(hunk.modStart, Math.max(0, editor.document.lineCount - 1));
 			const hover = new vscode.MarkdownString(
-				`**Alterado pelo agente** · +${hunk.afterLines.length} −${hunk.beforeLines.length}\n\n` +
-				`${commandLink('agentecode.review.keepHunk', editor.document.uri, hunk.key, '$(check) Manter')} &nbsp;·&nbsp; ${commandLink('agentecode.review.undoHunk', editor.document.uri, hunk.key, '$(discard) Desfazer')}\n\n` +
-				'Atalhos: **Alt+Y** manter · **Alt+N** desfazer'
+				`**${t('Changed by the agent')}** · +${hunk.afterLines.length} −${hunk.beforeLines.length}\n\n` +
+				`${commandLink('agentecode.review.keepHunk', editor.document.uri, hunk.key, `$(check) ${t('Keep')}`)} &nbsp;·&nbsp; ${commandLink('agentecode.review.undoHunk', editor.document.uri, hunk.key, `$(discard) ${t('Undo')}`)}\n\n` +
+				t('Shortcuts: **Alt+Y** keep · **Alt+N** undo')
 			);
 			hover.isTrusted = true;
 			hover.supportThemeIcons = true;
-			return { range: editor.document.lineAt(line).range, hoverMessage: hover, renderOptions: { after: { contentText: '✦ agente · Alt+Y manter · Alt+N desfazer' } } };
+			return { range: editor.document.lineAt(line).range, hoverMessage: hover, renderOptions: { after: { contentText: `✦ ${t('agent · Alt+Y keep · Alt+N undo')}` } } };
 		}));
 	}
 	const updateAllHints = () => vscode.window.visibleTextEditors.forEach(editor => void updateInlineHints(editor));
@@ -315,15 +323,15 @@ function registerReviewView(context) {
 		}
 		let emptyText = '';
 		if (!session) {
-			emptyText = 'Nenhuma conversa do agente encontrada para esta pasta.';
+			emptyText = t('No agent conversation found for this folder.');
 		} else if (!review || (!review.firstMessageId && !review.all.length)) {
-			emptyText = 'Esta conversa ainda não alterou arquivos.';
+			emptyText = t('This conversation has not changed any files yet.');
 		} else if (!rows.length) {
-			emptyText = hidden ? `Tudo revisado (${hidden}).` : 'Nenhuma diferença: os arquivos estão como antes.';
+			emptyText = hidden ? t('All reviewed ({0}).', hidden) : t('No difference: the files are as they were before.');
 		}
 		return {
 			conversation: session ? (session.title ?? session.id) : '',
-			base: base ? `antes de "${base.prompt.slice(0, 40)}"` : 'o início da conversa',
+			base: baseLabel(base),
 			totals: { files: pending.length, added: sum('added'), removed: sum('removed') },
 			hiddenReviewed: hidden,
 			showReviewed,
@@ -619,10 +627,10 @@ function registerReviewView(context) {
 	}
 
 	const terminalNote = mode => (mode === 'exact'
-		? 'Inclui o que foi alterado por comandos de terminal (comparado com a foto do projeto no começo do pedido).'
+		? t('Includes what was changed by terminal commands (compared with the project snapshot at the start of the request).')
 		: mode === 'approx'
-			? 'As mudanças por terminal são aproximadas: comparadas com o último commit anterior à conversa, só dos arquivos mexidos no horário dela.'
-			: 'Sem repositório git: o que foi feito por comandos de terminal não aparece aqui.');
+			? t('Terminal changes are approximate: compared with the last commit before the conversation, only for files touched during it.')
+			: t('No git repository: what was done by terminal commands does not appear here.'));
 
 	/** Recalcula as alteracoes e atualiza arvore, painel de codigo-fonte, margem do editor e Explorer. */
 	async function reload(useCache = false) {
@@ -642,7 +650,7 @@ function registerReviewView(context) {
 				if (!session) {
 					review = undefined;
 					pendingByKey = new Map();
-					view.message = 'Nenhuma conversa do agente encontrada para esta pasta.';
+					view.message = t('No agent conversation found for this folder.');
 				} else {
 					const computed = await computeReview(session, roots(), { baseMessageId: base?.messageId });
 					let terminal = { mode: 'none', truncated: false, items: [] };
@@ -659,14 +667,14 @@ function registerReviewView(context) {
 					hidden = hiddenCount;
 					pendingByKey = new Map(pending.map(i => [keyOf(i.file), i]));
 
-					const notes = [`Conversa: ${session.title ?? session.id}`, `Comparando com: ${base ? `antes de "${base.prompt.slice(0, 40)}"` : 'o início da conversa'}`];
+					const notes = [t('Conversation: {0}', session.title ?? session.id), t('Comparing with: {0}', baseLabel(base))];
 					if (!computed.firstMessageId && !allItems.length) {
-						notes.push('Esta conversa ainda não alterou arquivos.');
+						notes.push(t('This conversation has not changed any files yet.'));
 					} else if (!pending.length) {
-						notes.push(hidden ? `Tudo revisado (${hidden}).` : 'Nenhuma diferença.');
+						notes.push(hidden ? t('All reviewed ({0}).', hidden) : t('No difference.'));
 					}
 					if (hidden && pending.length) {
-						notes.push(`${hidden} já revisado(s) oculto(s).`);
+						notes.push(t('{0} already reviewed hidden.', hidden));
 					}
 					notes.push(terminalNote(terminal.mode));
 					view.message = notes.join(' · ');
@@ -674,16 +682,16 @@ function registerReviewView(context) {
 
 				const pendingNow = review ? review.pending : [];
 				const sum = key => pendingNow.reduce((total, item) => total + (item[key] ?? 0), 0);
-				view.description = pendingNow.length ? `${pendingNow.length} arquivo(s) +${sum('added')} −${sum('removed')}` : undefined;
-				view.badge = pendingNow.length ? { value: pendingNow.length, tooltip: `${pendingNow.length} arquivo(s) a revisar` } : undefined;
+				view.description = pendingNow.length ? t('{0} file(s) +{1} −{2}', pendingNow.length, sum('added'), sum('removed')) : undefined;
+				view.badge = pendingNow.length ? { value: pendingNow.length, tooltip: t('{0} file(s) to review', pendingNow.length) } : undefined;
 				scm.count = pendingNow.length;
 				scmGroup.resourceStates = pendingNow.map(item => ({
 					resourceUri: vscode.Uri.file(item.file),
 					decorations: {
-						tooltip: `${STATUS[item.status].text}${item.added === null ? '' : ` +${item.added} −${item.removed}`}`,
+						tooltip: `${statusText(item.status)}${item.added === null ? '' : ` +${item.added} −${item.removed}`}`,
 						strikeThrough: item.status === 'deleted'
 					},
-					command: { command: 'agentecode.review.open', title: 'Ver diferença', arguments: [item] },
+					command: { command: 'agentecode.review.open', title: t('View diff'), arguments: [item] },
 					contextValue: 'reviewFile'
 				}));
 				decorationEmitter.fire([...previous, ...pendingNow.map(i => i.file)].map(f => vscode.Uri.file(f)));
@@ -692,7 +700,7 @@ function registerReviewView(context) {
 				void postPanel();
 			} catch (error) {
 				review = undefined;
-				view.message = `Não foi possível ler as alterações: ${error && error.message ? error.message : error}`;
+				view.message = t('Could not read the changes: {0}', error && error.message ? error.message : error);
 			} finally {
 				loading = undefined;
 			}
@@ -713,16 +721,18 @@ function registerReviewView(context) {
 		const changes = items.map(i => ({ file: i.file, action: i.status === 'added' ? 'delete' : i.status === 'deleted' ? 'recreate' : 'restore', backup: i.backup }));
 		const dirty = changes.filter(c => vscode.workspace.textDocuments.some(d => d.isDirty && d.uri.scheme === 'file' && isInsideAny(d.uri.fsPath, [c.file])));
 		if (dirty.length) {
-			void vscode.window.showWarningMessage(`Salve ou descarte as alterações abertas no editor antes de voltar: ${dirty.map(d => path.basename(d.file)).join(', ')}.`);
+			void vscode.window.showWarningMessage(t('Save or discard the changes open in the editor before reverting: {0}.', dirty.map(d => path.basename(d.file)).join(', ')));
 			return;
 		}
-		const names = items.slice(0, 6).map(i => `• ${path.basename(i.file)} (${STATUS[i.status].text})`).join('\n') + (items.length > 6 ? `\n… e mais ${items.length - 6}` : '');
+		const names = items.slice(0, 6).map(i => `• ${path.basename(i.file)} (${statusText(i.status)})`).join('\n') + (items.length > 6 ? `\n${t('… and {0} more', items.length - 6)}` : '');
+		const revertLabel = t('Revert');
+		const undoLabel = t('Undo');
 		const confirm = await vscode.window.showWarningMessage(
-			items.length === 1 ? 'Voltar este arquivo para o estado de antes?' : `Voltar ${items.length} arquivos para o estado de antes?`,
-			{ modal: true, detail: `${names}\n\nSe você mesmo editou o arquivo depois do agente, essas edições também voltam. O estado atual fica guardado e dá para desfazer em "AgenteCode: Desfazer a última volta de arquivos".` },
-			'Voltar'
+			items.length === 1 ? t('Revert this file to its previous state?') : t('Revert {0} files to their previous state?', items.length),
+			{ modal: true, detail: `${names}\n\n${t('If you edited the file yourself after the agent, those edits are reverted too. The current state is saved and can be undone with "AgenteCode: Undo the Last File Revert".')}` },
+			revertLabel
 		);
-		if (confirm !== 'Voltar') {
+		if (confirm !== revertLabel) {
 			return;
 		}
 		await saveUndoPoint(context, label, changes);
@@ -737,10 +747,10 @@ function registerReviewView(context) {
 		}
 		await reload();
 		const choice = await vscode.window.showInformationMessage(
-			failed ? `${changes.length - failed} arquivo(s) voltaram; ${failed} falharam (veja o console do desenvolvedor).` : `${changes.length} arquivo(s) voltaram.`,
-			'Desfazer'
+			failed ? t('{0} file(s) reverted; {1} failed (see the developer console).', changes.length - failed, failed) : t('{0} file(s) reverted.', changes.length),
+			undoLabel
 		);
-		if (choice === 'Desfazer') {
+		if (choice === undoLabel) {
 			await undoLastRewind(context);
 			await reload();
 		}
@@ -763,18 +773,18 @@ function registerReviewView(context) {
 			}
 			const uri = vscode.Uri.file(item.file);
 			if (item.status === 'modified') {
-				await vscode.commands.executeCommand('vscode.diff', backupUri(session.id, item.file, item.backup, item.source === 'terminal'), uri, `${path.basename(item.file)} (antes ↔ agora)`, { preview: true });
+				await vscode.commands.executeCommand('vscode.diff', backupUri(session.id, item.file, item.backup, item.source === 'terminal'), uri, `${path.basename(item.file)} (${t('before ↔ now')})`, { preview: true });
 			} else if (item.status === 'added') {
-				await vscode.commands.executeCommand('vscode.diff', backupUri(session.id, item.file, undefined), uri, `${path.basename(item.file)} (novo)`, { preview: true });
+				await vscode.commands.executeCommand('vscode.diff', backupUri(session.id, item.file, undefined), uri, `${path.basename(item.file)} (${statusText('added')})`, { preview: true });
 			} else {
-				await vscode.commands.executeCommand('vscode.open', backupUri(session.id, item.file, item.backup, item.source === 'terminal'), { preview: true }, `${path.basename(item.file)} (excluído)`);
+				await vscode.commands.executeCommand('vscode.open', backupUri(session.id, item.file, item.backup, item.source === 'terminal'), { preview: true }, `${path.basename(item.file)} (${statusText('deleted')})`);
 			}
 		}),
 
 		vscode.commands.registerCommand('agentecode.review.keep', async (item, selection) => {
 			const targets = targetsOf(item, selection);
 			if (targets.length) {
-				await markReviewed(targets.map(t => t.file));
+				await markReviewed(targets.map(target => target.file));
 			}
 		}),
 
@@ -783,7 +793,7 @@ function registerReviewView(context) {
 			if (target) {
 				await vscode.commands.executeCommand('agentecode.review.keepHunk', target.uri, target.key);
 			} else {
-				void vscode.window.showInformationMessage('Coloque o cursor dentro de um trecho alterado pelo agente.');
+				void vscode.window.showInformationMessage(t('Place the cursor inside a hunk changed by the agent.'));
 			}
 		}),
 
@@ -792,7 +802,7 @@ function registerReviewView(context) {
 			if (target) {
 				await vscode.commands.executeCommand('agentecode.review.undoHunk', target.uri, target.key);
 			} else {
-				void vscode.window.showInformationMessage('Coloque o cursor dentro de um trecho alterado pelo agente.');
+				void vscode.window.showInformationMessage(t('Place the cursor inside a hunk changed by the agent.'));
 			}
 		}),
 
@@ -824,7 +834,7 @@ function registerReviewView(context) {
 			const current = document.getText();
 			const hunk = computeHunks(await readBackupText(item), current).find(h => h.key === key);
 			if (!hunk) {
-				void vscode.window.showInformationMessage('Este trecho mudou desde que a lista foi calculada. Atualize e tente de novo.');
+				void vscode.window.showInformationMessage(t('This hunk changed since the list was calculated. Refresh and try again.'));
 				lensEmitter.fire();
 				return;
 			}
@@ -857,22 +867,22 @@ function registerReviewView(context) {
 		vscode.commands.registerCommand('agentecode.review.revert', async (item, selection) => {
 			const targets = targetsOf(item, selection);
 			if (targets.length) {
-				await restoreFiles(targets, `revisão: ${targets.length} arquivo(s)`);
+				await restoreFiles(targets, t('review: {0} file(s)', targets.length));
 			}
 		}),
 
 		vscode.commands.registerCommand('agentecode.review.revertAll', async () => {
 			if (session && review?.pending.some(i => i.source === 'terminal')) {
-				await restoreFiles(review.pending, `revisão: ${review.pending.length} arquivo(s)`);
+				await restoreFiles(review.pending, t('review: {0} file(s)', review.pending.length));
 			} else if (session && review?.firstMessageId) {
-				await rewindToCheckpoint(context, session, { messageId: review.firstMessageId, prompt: base ? base.prompt : 'o início da conversa' });
+				await rewindToCheckpoint(context, session, { messageId: review.firstMessageId, prompt: base ? base.prompt : t('the start of the conversation') });
 				await reload();
 			}
 		}),
 
 		vscode.commands.registerCommand('agentecode.review.toggleReviewed', async () => {
 			showReviewed = !showReviewed;
-			void vscode.window.showInformationMessage(showReviewed ? 'Mostrando também os arquivos já revisados na lista lateral.' : 'Ocultando os arquivos já revisados.');
+			void vscode.window.showInformationMessage(showReviewed ? t('Also showing the already reviewed files in the side list.') : t('Hiding the already reviewed files.'));
 			treeEmitter.fire(undefined);
 			void postPanel();
 		}),
@@ -885,8 +895,8 @@ function registerReviewView(context) {
 		vscode.commands.registerCommand('agentecode.review.chooseSession', async () => {
 			const all = await listSessions((vscode.workspace.workspaceFolders ?? []).map(f => f.uri.fsPath), 40);
 			const picked = await vscode.window.showQuickPick(
-				all.map(s => ({ label: s.title, description: new Date(s.mtime).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }), session: s })),
-				{ title: 'Revisar alterações de qual conversa?', placeHolder: 'Escolha a conversa do agente' }
+				all.map(s => ({ label: s.title, description: new Date(s.mtime).toLocaleString(dateLocale(), { dateStyle: 'short', timeStyle: 'short' }), session: s })),
+				{ title: t('Review the changes of which conversation?'), placeHolder: t('Choose the agent conversation') }
 			);
 			if (picked) {
 				session = picked.session;
@@ -902,15 +912,15 @@ function registerReviewView(context) {
 			}
 			const turns = await listBases(session.file);
 			const items = [
-				{ label: '$(history) Início da conversa', description: base ? '' : 'atual', turn: undefined },
-				...turns.slice(0, 60).map((t, index) => ({
-					label: index === 0 ? '$(debug-step-back) Antes da última resposta' : `Antes de: ${t.prompt.slice(0, 70)}`,
-					description: t.timestamp ? new Date(t.timestamp).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '',
-					detail: index === 0 ? t.prompt.slice(0, 100) : undefined,
-					turn: t
+				{ label: `$(history) ${t('Start of the conversation')}`, description: base ? '' : t('current'), turn: undefined },
+				...turns.slice(0, 60).map((turn, index) => ({
+					label: index === 0 ? `$(debug-step-back) ${t('Before the last response')}` : t('Before: {0}', turn.prompt.slice(0, 70)),
+					description: turn.timestamp ? new Date(turn.timestamp).toLocaleString(dateLocale(), { dateStyle: 'short', timeStyle: 'short' }) : '',
+					detail: index === 0 ? turn.prompt.slice(0, 100) : undefined,
+					turn
 				}))
 			];
-			const picked = await vscode.window.showQuickPick(items, { title: 'Comparar as alterações com...', placeHolder: 'O que o agente mudou desde quando?' });
+			const picked = await vscode.window.showQuickPick(items, { title: t('Compare the changes with...'), placeHolder: t('What has the agent changed since when?') });
 			if (picked) {
 				base = picked.turn ? { messageId: picked.turn.messageId, prompt: picked.turn.prompt } : undefined;
 				await reload();

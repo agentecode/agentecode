@@ -13,6 +13,17 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+// Textos em inglês; quem usa esta lógica pode injetar um tradutor (setTranslator) cujos {0}, {1}... recebem os argumentos.
+const fill = (text, args) => (args.length ? text.replace(/\{(\d+)\}/g, (m, i) => (args[Number(i)] !== undefined ? String(args[Number(i)]) : m)) : text);
+let translate = (s, ...args) => fill(s, args);
+let locale = 'en-US';
+
+// `fn`: (texto em inglês, ...argumentos) => texto traduzido; `loc`: idioma de datas e números (ex.: 'pt-BR').
+function setTranslator(fn, loc) {
+  translate = fn || ((s, ...args) => fill(s, args));
+  locale = loc || 'en-US';
+}
+
 // USD por 1M de tokens. `cr` = cache read; escrita de cache = 1.25x (5m) e 2x (1h) do input.
 // Haiku 5.5 usa outra tabela quando o prompt passa de 100K tokens.
 const PRICES = [
@@ -320,10 +331,10 @@ const parseUsageBody = (body, receivedAt) => {
 const parseCredentials = text => {
   try {
     const oauth = JSON.parse(text).claudeAiOauth;
-    if (!oauth || typeof oauth.accessToken !== 'string' || !oauth.accessToken) return { error: 'credencial do Claude Code sem token' };
+    if (!oauth || typeof oauth.accessToken !== 'string' || !oauth.accessToken) return { error: translate('Claude Code credential has no token') };
     return { token: oauth.accessToken, expiresAt: typeof oauth.expiresAt === 'number' ? oauth.expiresAt : null };
   } catch {
-    return { error: 'credencial do Claude Code ilegível' };
+    return { error: translate('Claude Code credential is unreadable') };
   }
 };
 
@@ -331,7 +342,7 @@ const readCredentials = () => {
   try {
     return parseCredentials(fs.readFileSync(path.join(claudeDir(), '.credentials.json'), 'utf8'));
   } catch {
-    return { error: 'credencial do Claude Code não encontrada (faça login no Claude Code)' };
+    return { error: translate('Claude Code credential not found (log in to Claude Code)') };
   }
 };
 
@@ -357,13 +368,13 @@ const formatRemaining = ms => {
   return `${min}m`;
 };
 
-const clock = ms => new Date(ms).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+const clock = ms => new Date(ms).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 
 // Momento do reinício: "às 18:41" se for hoje, "ter. às 21:00" nos outros dias.
 const resetClock = (resetsAt, now) => {
   const d = new Date(resetsAt);
-  if (d.toDateString() === new Date(now).toDateString()) return `às ${clock(resetsAt)}`;
-  return `${d.toLocaleDateString('pt-BR', { weekday: 'short' })} às ${clock(resetsAt)}`;
+  if (d.toDateString() === new Date(now).toDateString()) return translate('at {0}', clock(resetsAt));
+  return translate('{0} at {1}', d.toLocaleDateString(locale, { weekday: 'short' }), clock(resetsAt));
 };
 
 // Janela utilizável: leitura recente e ainda não reiniciada.
@@ -380,12 +391,13 @@ const resetSuffix = (w, now) => (w.resetsAt === null ? '' : ` ↻${formatRemaini
 
 // Leitura que já não é recente (a meter atualiza a cada ~5 min) vem com a idade ao lado.
 const AGED_MS = 10 * 60_000;
-const ageSuffix = limits => (limits && limits.ageMs !== null && limits.ageMs >= AGED_MS ? ` (há ${formatRemaining(limits.ageMs)})` : '');
+const ageText = limits => (limits && limits.ageMs !== null && limits.ageMs >= AGED_MS ? translate('{0} ago', formatRemaining(limits.ageMs)) : '');
+const ageSuffix = limits => (ageText(limits) ? ` (${ageText(limits)})` : '');
 
 const render = (snap, now, opts, limits) => {
   const main = [];
   const tail = [];
-  const lines = ['**Claude Code — sessão atual**', '', '| | |', '|---|---|'];
+  const lines = [`**Claude Code — ${translate('current session')}**`, '', '| | |', '|---|---|'];
   let warnMain = false;
   let warnFive = false;
   let warnWeek = false;
@@ -425,23 +437,23 @@ const render = (snap, now, opts, limits) => {
 
   if (snap) {
     if (opts.showCost) tail.push(`US$ ${snap.costUsd.toFixed(2)}`);
-    if (opts.showTurn && snap.turnMs !== null) tail.push(`turno ${formatTurn(snap.turnMs)}${snap.running ? ' ▶' : ''}`);
+    if (opts.showTurn && snap.turnMs !== null) tail.push(`${translate('turn {0}', formatTurn(snap.turnMs))}${snap.running ? ' ▶' : ''}`);
     const window = contextWindow(snap.model, opts.contextWindow);
     const t = snap.totals;
     lines.push(
-      `| Modelo | ${snap.model ?? '–'} |`,
-      `| Contexto | ${snap.ctxTokens === null ? '–' : snap.ctxTokens.toLocaleString('pt-BR')} / ${window.toLocaleString('pt-BR')} tokens |`,
-      `| Custo estimado | US$ ${snap.costUsd.toFixed(4)}${snap.unpriced ? ' (há modelo sem preço conhecido)' : ''} |`,
-      `| Tokens (soma) | in ${formatTokens(t.input)} · out ${formatTokens(t.output)} · cache lido ${formatTokens(t.cacheRead)} · cache escrito ${formatTokens(t.cacheWrite)} |`,
+      `| ${translate('Model')} | ${snap.model ?? '–'} |`,
+      `| ${translate('Context')} | ${translate('{0} / {1} tokens', snap.ctxTokens === null ? '–' : snap.ctxTokens.toLocaleString(locale), window.toLocaleString(locale))} |`,
+      `| ${translate('Estimated cost')} | US$ ${snap.costUsd.toFixed(4)}${snap.unpriced ? ` (${translate('a model has no known price')})` : ''} |`,
+      `| ${translate('Tokens (total)')} | ${translate('in {0} · out {1} · cache read {2} · cache written {3}', formatTokens(t.input), formatTokens(t.output), formatTokens(t.cacheRead), formatTokens(t.cacheWrite))} |`,
     );
   }
-  const remaining = w => (w.resetsAt === null ? '' : ` — reseta em ${formatRemaining(w.resetsAt - now)} (${resetClock(w.resetsAt, now)})`);
-  if (five) lines.push(`| Limite 5h | ${five.percent}%${remaining(five)} |`);
-  if (week) lines.push(`| Limite 7d | ${week.percent}%${remaining(week)} |`);
+  const remaining = w => (w.resetsAt === null ? '' : ` — ${translate('resets in {0} ({1})', formatRemaining(w.resetsAt - now), resetClock(w.resetsAt, now))}`);
+  if (five) lines.push(`| ${translate('5h limit')} | ${five.percent}%${remaining(five)} |`);
+  if (week) lines.push(`| ${translate('7d limit')} | ${week.percent}%${remaining(week)} |`);
   lines.push('');
-  if (snap) lines.push('Custo calculado pela tabela de preços da API a partir do transcript (inclui subagentes); não é o valor de cobrança.');
+  if (snap) lines.push(translate('Cost calculated from the transcript using the API price table (includes subagents); it is not the billed amount.'));
   if (limits && limits.receivedAt !== null) {
-    lines.push(`Limites lidos ${limits.source === 'direto' ? 'direto da API' : 'da claude-usage-meter'} às ${clock(limits.receivedAt)}${limits.stale ? ' (desatualizados, não exibidos)' : ''}.`);
+    lines.push(translate('Limits read {0} at {1}{2}.', limits.source === 'direto' ? translate('directly from the API') : translate('from claude-usage-meter'), clock(limits.receivedAt), limits.stale ? ` (${translate('outdated, not shown')})` : ''));
   }
   const segments = {
     main: main.length ? main.join(' · ') : null,
@@ -462,7 +474,7 @@ const render = (snap, now, opts, limits) => {
       }
     : null;
   return {
-    text: all.length ? all.join(' · ') : '$(clock) Claude: sem dados',
+    text: all.length ? all.join(' · ') : `$(clock) Claude: ${translate('no data')}`,
     segments,
     warn: { main: warnMain, five: warnFive, week: warnWeek },
     colors,
@@ -553,41 +565,41 @@ const renderPanel = (snap, now, opts, limits) => {
   const five = liveWindow(limits && limits.session, limits, now);
   const week = liveWindow(limits && limits.weekly, limits, now);
   const ramp = rampOf(opts);
-  const resets = w => [w.resetsAt !== null ? `Reseta em ${formatRemaining(w.resetsAt - now)} (${resetClock(w.resetsAt, now)})` : '', ageSuffix(limits).trim().replace(/^\((.*)\)$/, 'leitura $1')].filter(Boolean).join(' · ');
-  const body = ['<h2>Uso da assinatura</h2>'];
+  const resets = w => [w.resetsAt !== null ? translate('Resets in {0} ({1})', formatRemaining(w.resetsAt - now), resetClock(w.resetsAt, now)) : '', ageText(limits) ? translate('reading {0}', ageText(limits)) : ''].filter(Boolean).join(' · ');
+  const body = [`<h2>${translate('Subscription usage')}</h2>`];
 
   const reiniciada = (titulo) =>
-    `<div class="row"><div class="top"><span>${titulo}</span><span>–</span></div><div class="track"></div><div class="sub">Janela reiniciada; aguardando a nova leitura.</div></div>`;
+    `<div class="row"><div class="top"><span>${titulo}</span><span>–</span></div><div class="track"></div><div class="sub">${translate('Window restarted; waiting for the new reading.')}</div></div>`;
   const five0 = !five && restartedWindow(limits && limits.session, limits, now);
   const week0 = !week && restartedWindow(limits && limits.weekly, limits, now);
   if (five || week || five0 || week0) {
-    if (five0) body.push(reiniciada('Sessão (5h)'));
-    if (week0) body.push(reiniciada('Semanal (7 dias)'));
-    if (five) body.push(barRow('Sessão (5h)', five.percent, resets(five), normalizeColor(opts.colorFive), ramp));
-    if (week) body.push(barRow('Semanal (7 dias)', week.percent, resets(week), normalizeColor(opts.colorWeek), ramp));
+    if (five0) body.push(reiniciada(translate('Session (5h)')));
+    if (week0) body.push(reiniciada(translate('Weekly (7 days)')));
+    if (five) body.push(barRow(translate('Session (5h)'), five.percent, resets(five), normalizeColor(opts.colorFive), ramp));
+    if (week) body.push(barRow(translate('Weekly (7 days)'), week.percent, resets(week), normalizeColor(opts.colorWeek), ramp));
   } else {
-    const enable = '<a href="command:claudeUsageBar.enableDirect">ativar os limites 5h/7d</a>';
+    const enable = `<a href="command:claudeUsageBar.enableDirect">${translate('enable the 5h/7d limits')}</a>`;
     const hint = opts.fetchLimitsDirectly
-      ? `Aguardando a consulta à API de uso.${opts.directError ? ` Último erro: ${esc(opts.directError)}.` : ''}`
-      : `Clique para ${enable} (lê o token do Claude Code e consulta a API de uso da Anthropic).`;
-    const why = `${limits && limits.stale ? `Leitura dos limites desatualizada (última às ${clock(limits.receivedAt)}).` : 'Limites 5h/7d indisponíveis.'} ${hint}`;
+      ? `${translate('Waiting for the usage API query.')}${opts.directError ? ` ${translate('Last error: {0}.', esc(opts.directError))}` : ''}`
+      : translate("Click to {0} (reads the Claude Code token and queries Anthropic's usage API).", enable);
+    const why = `${limits && limits.stale ? translate('Limits reading is outdated (last at {0}).', clock(limits.receivedAt)) : translate('5h/7d limits unavailable.')} ${hint}`;
     body.push(`<div class="sub">${why}</div>`);
   }
 
-  body.push('<h2>Sessão atual</h2>');
+  body.push(`<h2>${translate('Current session')}</h2>`);
   if (snap) {
     const window = contextWindow(snap.model, opts.contextWindow);
     if (snap.ctxTokens !== null) {
       const pct = Math.round((snap.ctxTokens / window) * 100);
-      body.push(barRow('Contexto', pct, `${snap.ctxTokens.toLocaleString('pt-BR')} / ${window.toLocaleString('pt-BR')} tokens`, null, ramp, 'charts.green'));
+      body.push(barRow(translate('Context'), pct, translate('{0} / {1} tokens', snap.ctxTokens.toLocaleString(locale), window.toLocaleString(locale)), null, ramp, 'charts.green'));
     }
-    const kv = [['Modelo', snap.model ?? '–']];
-    if (snap.startedAt !== null) kv.push(['Tempo', formatElapsed(now - snap.startedAt)]);
-    if (opts.showCost) kv.push(['Custo estimado', `US$ ${snap.costUsd.toFixed(2)}`]);
-    if (snap.turnMs !== null) kv.push(['Último turno', `${formatTurn(snap.turnMs)}${snap.running ? ' ▶' : ''}`]);
+    const kv = [[translate('Model'), snap.model ?? '–']];
+    if (snap.startedAt !== null) kv.push([translate('Time'), formatElapsed(now - snap.startedAt)]);
+    if (opts.showCost) kv.push([translate('Estimated cost'), `US$ ${snap.costUsd.toFixed(2)}`]);
+    if (snap.turnMs !== null) kv.push([translate('Last turn'), `${formatTurn(snap.turnMs)}${snap.running ? ' ▶' : ''}`]);
     body.push(`<table>${kv.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join('')}</table>`);
   } else {
-    body.push('<div class="sub">Nenhum transcript do Claude Code encontrado para esta pasta.</div>');
+    body.push(`<div class="sub">${translate('No Claude Code transcript found for this folder.')}</div>`);
   }
 
   return `<!doctype html><html><head><meta charset="utf-8">
@@ -615,6 +627,7 @@ const shouldNudge = (limits, now, lastNudge) => {
 };
 
 module.exports = {
+  setTranslator,
   shouldNudge,
   parseUsageBody,
   parseCredentials,

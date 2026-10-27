@@ -10,6 +10,7 @@ const { readEntries } = require('./sessionMarkdown');
 const { listCheckpoints, planRewind } = require('./checkpoints');
 const { listSessions, isActiveSession, sessionMatches, sessionArtifacts } = require('./sessionStore');
 const { rewindToCheckpoint, undoLastRewind } = require('./rewind');
+const { t, getLanguage } = require('./i18n');
 
 const VIEW_ID = 'agentecode.sessions';
 const SEARCH_CONTEXT = 'agentecode.sessions.searching';
@@ -35,7 +36,7 @@ async function loadCheckpoints(file) {
 
 function formatDate(value) {
 	const date = new Date(value);
-	return isNaN(date.getTime()) ? '' : date.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+	return isNaN(date.getTime()) ? '' : date.toLocaleString(getLanguage() === 'pt' ? 'pt-BR' : 'en-US', { dateStyle: 'short', timeStyle: 'short' });
 }
 
 function formatSize(bytes) {
@@ -111,7 +112,7 @@ class SessionsProvider {
 			item.iconPath = new vscode.ThemeIcon('comment-discussion');
 			item.contextValue = 'session';
 			const tip = new vscode.MarkdownString(undefined, true);
-			tip.appendText(`${element.title}\n\nSessão: ${element.id}\nProjeto: ${element.cwd ?? '-'}\nArquivo: ${element.file}`);
+			tip.appendText(`${element.title}\n\n${t('Session: {0}', element.id)}\n${t('Project: {0}', element.cwd ?? '-')}\n${t('File: {0}', element.file)}`);
 			item.tooltip = tip;
 			return item;
 		}
@@ -120,7 +121,7 @@ class SessionsProvider {
 		item.description = formatDate(element.timestamp);
 		item.iconPath = new vscode.ThemeIcon('discard');
 		item.contextValue = 'checkpoint';
-		item.tooltip = `${element.prompt}\n\nClique no botão para voltar os arquivos para antes desta resposta.`;
+		item.tooltip = `${element.prompt}\n\n${t('Click the button to restore the files to before this response.')}`;
 		return item;
 	}
 }
@@ -140,7 +141,7 @@ function registerSessionsView(context) {
 		if (query) {
 			const matches = new Set();
 			const all = await listSessions(provider.folders);
-			await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: `Buscando "${query}" nas sessões…`, cancellable: true }, async (_progress, token) => {
+			await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: t('Searching for "{0}" in the sessions…', query), cancellable: true }, async (_progress, token) => {
 				for (const session of all) {
 					if (token.isCancellationRequested) {
 						break;
@@ -152,8 +153,8 @@ function registerSessionsView(context) {
 			});
 			provider.matches = matches;
 			view.message = matches.size
-				? `Busca: "${query}" — ${matches.size} sessão(ões)`
-				: `Nenhuma sessão contém "${query}".`;
+				? t('Search: "{0}" — {1} session(s)', query, matches.size)
+				: t('No session contains "{0}".', query);
 		}
 		provider.refresh();
 	};
@@ -168,7 +169,7 @@ function registerSessionsView(context) {
 		vscode.commands.registerCommand('agentecode.sessions.refresh', () => provider.refresh()),
 
 		vscode.commands.registerCommand('agentecode.sessions.search', async () => {
-			const query = await vscode.window.showInputBox({ title: 'Buscar nas sessões do agente', prompt: 'Procura no texto das conversas (sem diferenciar maiúsculas)', value: provider.query });
+			const query = await vscode.window.showInputBox({ title: t('Search the agent sessions'), prompt: t('Searches the text of the conversations (case-insensitive)'), value: provider.query });
 			if (query?.trim()) {
 				await setSearch(query.trim());
 			}
@@ -182,7 +183,7 @@ function registerSessionsView(context) {
 			try {
 				await resumeSession(item.id);
 			} catch (error) {
-				void vscode.window.showErrorMessage(`Não foi possível abrir a sessão no Claude Code: ${error.message}`);
+				void vscode.window.showErrorMessage(t('Could not open the session in Claude Code: {0}', error.message));
 			}
 		}),
 
@@ -194,19 +195,20 @@ function registerSessionsView(context) {
 			const busy = chosen.filter(s => isActiveSession(s.mtime));
 			const targets = chosen.filter(s => !isActiveSession(s.mtime));
 			if (busy.length) {
-				void vscode.window.showWarningMessage(`${busy.length} sessão(ões) foram alteradas há menos de 2 minutos e parecem estar em uso. Elas não serão excluídas.`);
+				void vscode.window.showWarningMessage(t('{0} session(s) were modified less than 2 minutes ago and seem to be in use. They will not be deleted.', busy.length));
 			}
 			if (!targets.length) {
 				return;
 			}
 
-			const names = targets.slice(0, 8).map(s => `• ${s.title}`).join('\n') + (targets.length > 8 ? `\n… e mais ${targets.length - 8}` : '');
+			const names = targets.slice(0, 8).map(s => `• ${s.title}`).join('\n') + (targets.length > 8 ? `\n${t('… and {0} more', targets.length - 8)}` : '');
+			const moveLabel = t('Move to Trash');
 			const confirm = await vscode.window.showWarningMessage(
-				targets.length === 1 ? 'Mover esta sessão para a Lixeira?' : `Mover ${targets.length} sessões para a Lixeira?`,
-				{ modal: true, detail: `${names}\n\nAs cópias de arquivos (checkpoints) dessas sessões vão junto. Dá para recuperar pela Lixeira do Windows.` },
-				'Mover para a Lixeira'
+				targets.length === 1 ? t('Move this session to the Trash?') : t('Move {0} sessions to the Trash?', targets.length),
+				{ modal: true, detail: `${names}\n\n${t('The file copies (checkpoints) of these sessions go along with them. You can recover them from the Windows Recycle Bin.')}` },
+				moveLabel
 			);
-			if (confirm !== 'Mover para a Lixeira') {
+			if (confirm !== moveLabel) {
 				return;
 			}
 
@@ -223,14 +225,14 @@ function registerSessionsView(context) {
 			}
 			provider.refresh();
 			if (failed) {
-				void vscode.window.showWarningMessage(`${failed} item(ns) não puderam ser movidos (veja o console do desenvolvedor).`);
+				void vscode.window.showWarningMessage(t('{0} item(s) could not be moved (see the developer console).', failed));
 				return;
 			}
 
 			// O Claude Code so tira uma sessao da lista dele quando suas telas recarregam.
-			const refresh = 'Atualizar Claude Code';
-			const done = targets.length === 1 ? 'Sessão movida para a Lixeira.' : `${targets.length} sessões movidas para a Lixeira.`;
-			const choice = await vscode.window.showInformationMessage(`${done} A lista do Claude Code só atualiza quando as telas dele recarregam.`, refresh);
+			const refresh = t('Refresh Claude Code');
+			const done = targets.length === 1 ? t('Session moved to the Trash.') : t('{0} sessions moved to the Trash.', targets.length);
+			const choice = await vscode.window.showInformationMessage(t('{0} The Claude Code list only updates when its screens reload.', done), refresh);
 			if (choice === refresh) {
 				await vscode.commands.executeCommand('workbench.action.webview.reloadWebviewAction');
 			}

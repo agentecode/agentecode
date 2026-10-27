@@ -21,11 +21,17 @@ const { isFirstTimeGuide, markGuideShown, openGuide, GUIDE_SHOWN_KEY } = require
 const ui = require('./ui');
 const claudeConfig = require('./claudeConfig');
 const { mergeExcludedSettings } = require('./exclusions');
+const { t, getLanguage } = require('../i18n');
 
 const TOKEN_SECRET_KEY = 'agentecode.sync.githubToken';
 const LAST_SYNC_KEY = 'agentecode.sync.lastSync';
 const USER_LOGIN_KEY = 'agentecode.sync.userLogin';
 const MACHINE_ID_KEY = 'agentecode.sync.machineId';
+
+/** Locale usado para formatar datas, conforme o idioma escolhido na ativacao. */
+function dateLocale() {
+	return getLanguage() === 'pt' ? 'pt-BR' : 'en-US';
+}
 
 class SyncController {
 	/**
@@ -140,7 +146,7 @@ class SyncController {
 		const lastSync = this.getLastSync();
 		let lastSyncText = '';
 		if (lastSync && lastSync.timestamp) {
-			lastSyncText = new Date(lastSync.timestamp).toLocaleString('pt-BR');
+			lastSyncText = new Date(lastSync.timestamp).toLocaleString(dateLocale());
 		}
 
 		const action = await ui.showQuickPickMenu({
@@ -222,7 +228,7 @@ class SyncController {
 		const authResult = await vscode.window.withProgress(
 			{
 				location: vscode.ProgressLocation.Notification,
-				title: 'AgenteCode Sync: Aguardando autorização no navegador...',
+				title: t('AgenteCode Sync: Waiting for authorization in the browser...'),
 				cancellable: true
 			},
 			async (_, progressToken) => {
@@ -279,7 +285,7 @@ class SyncController {
 			if (outcome !== 'uploaded' && outcome !== 'skipped') {
 				ui.updateStatusBar(this.statusBar, outcome === 'notifyDownload' ? 'idle' : 'conflict');
 				if (outcome === 'notifyDownload') {
-					void vscode.window.showInformationMessage('O GitHub já tem configurações mais novas. Use "Baixar do GitHub" no menu para aplicá-las.');
+					void vscode.window.showInformationMessage(t('GitHub already has newer settings. Use "Download from GitHub" in the menu to apply them.'));
 				}
 				return;
 			}
@@ -288,17 +294,19 @@ class SyncController {
 			const gistUrl = lastSync ? lastSync.gistUrl : '';
 			const login = this.getUserLogin();
 
-			ui.updateStatusBar(this.statusBar, 'synced', `Conectado como @${login}`);
+			ui.updateStatusBar(this.statusBar, 'synced', t('Connected as @{0}', login));
 
+			const copyLabel = t('Copy Gist URL');
+			const openLabel = t('Open in Browser');
 			const action = await vscode.window.showInformationMessage(
-				`Conectado como @${login}! Suas configurações foram enviadas com sucesso para um Gist secreto.`,
-				'Copiar URL do Gist',
-				'Abrir no navegador'
+				t('Connected as @{0}! Your settings were uploaded successfully to a secret Gist.', login),
+				copyLabel,
+				openLabel
 			);
 
-			if (action === 'Copiar URL do Gist' && gistUrl) {
+			if (action === copyLabel && gistUrl) {
 				await vscode.env.clipboard.writeText(gistUrl);
-			} else if (action === 'Abrir no navegador' && gistUrl) {
+			} else if (action === openLabel && gistUrl) {
 				await vscode.env.openExternal(vscode.Uri.parse(gistUrl));
 			}
 		} catch (err) {
@@ -327,13 +335,13 @@ class SyncController {
 				ui.updateStatusBar(this.statusBar, 'conflict');
 			} else if (outcome === 'notifyDownload') {
 				ui.updateStatusBar(this.statusBar, 'idle');
-				void vscode.window.showInformationMessage('O GitHub tem configurações mais novas que as deste computador. Use "Baixar do GitHub" para aplicá-las.');
+				void vscode.window.showInformationMessage(t('GitHub has newer settings than this computer. Use "Download from GitHub" to apply them.'));
 			} else if (outcome === 'skipped') {
-				ui.updateStatusBar(this.statusBar, 'synced', 'Configurações sincronizadas');
-				void vscode.window.showInformationMessage('Nada a enviar: tudo já está igual ao GitHub.');
+				ui.updateStatusBar(this.statusBar, 'synced', t('Settings synced'));
+				void vscode.window.showInformationMessage(t('Nothing to upload: everything already matches GitHub.'));
 			} else {
-				ui.updateStatusBar(this.statusBar, 'synced', 'Configurações sincronizadas');
-				void vscode.window.showInformationMessage('Configurações enviadas para o GitHub com sucesso.');
+				ui.updateStatusBar(this.statusBar, 'synced', t('Settings synced'));
+				void vscode.window.showInformationMessage(t('Settings uploaded to GitHub successfully.'));
 			}
 		} catch (err) {
 			this.log.error('Erro em uploadNow:', err);
@@ -394,7 +402,7 @@ class SyncController {
 			} else {
 				const login = this.getUserLogin();
 				if (login && !gistClient.isGistOwner(gist, login)) {
-					throw new Error('Não é permitido sobrescrever automaticamente o Gist pertencente a outro usuário.');
+					throw new Error(t('Automatically overwriting a Gist that belongs to another user is not allowed.'));
 				}
 
 				if (!options.force) {
@@ -472,7 +480,7 @@ class SyncController {
 
 			const gist = await gistClient.findSyncGist(token);
 			if (!gist) {
-				void vscode.window.showInformationMessage('Nenhum Gist de sincronização foi encontrado na sua conta do GitHub.');
+				void vscode.window.showInformationMessage(t('No sync Gist was found on your GitHub account.'));
 				ui.updateStatusBar(this.statusBar, 'idle');
 				return;
 			}
@@ -523,7 +531,7 @@ class SyncController {
 				if (conflictDecision === 'upload') {
 					await this._uploadWithToken(token, 'Resolução de conflito: sobrescrever remoto', { force: true });
 					ui.updateStatusBar(this.statusBar, 'synced');
-					void vscode.window.showInformationMessage('GitHub atualizado com as configurações deste computador.');
+					void vscode.window.showInformationMessage(t('GitHub updated with this computer\'s settings.'));
 					return;
 				}
 				if (conflictDecision !== 'download') {
@@ -559,7 +567,7 @@ class SyncController {
 				await vscode.window.withProgress(
 					{
 						location: vscode.ProgressLocation.Notification,
-						title: 'Instalando extensões sincronizadas...',
+						title: t('Installing synced extensions...'),
 						cancellable: false
 					},
 					async progress => {
@@ -672,33 +680,33 @@ class SyncController {
 	}
 
 	_buildSummaryMarkdown({ plan, installedExts, failedExts, gistUrl }) {
-		let md = '# Resumo da Sincronização — AgenteCode\n\n';
-		md += `Sincronização aplicada com sucesso em **${new Date().toLocaleString('pt-BR')}**.\n\n`;
+		let md = `${t('# Sync Summary — AgenteCode')}\n\n`;
+		md += `${t('Sync applied successfully on **{0}**.', new Date().toLocaleString(dateLocale()))}\n\n`;
 
-		md += '## Arquivos de Configuração Atualizados\n\n';
+		md += `${t('## Updated Settings Files')}\n\n`;
 		for (const diff of plan.fileDiffs || []) {
 			if (diff.status !== 'identical') {
-				const icon = diff.status === 'remoteOnly' ? '➕ Adicionado' : '🔄 Atualizado';
+				const icon = diff.status === 'remoteOnly' ? t('➕ Added') : t('🔄 Updated');
 				md += `- **${diff.file}**: ${icon}\n`;
 			}
 		}
 
 		if (installedExts.length > 0) {
-			md += '\n## Extensões Instaladas\n\n';
+			md += `\n${t('## Installed Extensions')}\n\n`;
 			for (const ext of installedExts) {
 				md += `- \`${ext}\`\n`;
 			}
 		}
 
 		if (failedExts.length > 0) {
-			md += '\n## Extensões com Falha na Instalação\n\n';
+			md += `\n${t('## Extensions That Failed to Install')}\n\n`;
 			for (const f of failedExts) {
-				md += `- \`${f.id}\` (erro: ${f.error})\n`;
+				md += `- \`${f.id}\` (${t('error: {0}', f.error)})\n`;
 			}
 		}
 
-		md += `\n---\n*Gist sincronizado: [${gistUrl}](${gistUrl})*\n`;
-		md += '\n> **Dica:** Uma cópia dos seus arquivos anteriores foi guardada. Caso queira reverter, selecione **Desfazer a última sincronização** no menu.\n';
+		md += `\n---\n*${t('Synced Gist: [{0}]({0})', gistUrl)}*\n`;
+		md += `\n${t('> **Tip:** A copy of your previous files was saved. To revert, select **Undo Last Sync** in the menu.')}\n`;
 		return md;
 	}
 
@@ -706,19 +714,20 @@ class SyncController {
 		try {
 			const backups = await backup.listBackups(this.backupDir);
 			if (backups.length === 0) {
-				void vscode.window.showWarningMessage('Nenhum backup recente foi encontrado para restauração.');
+				void vscode.window.showWarningMessage(t('No recent backup was found to restore.'));
 				return;
 			}
+			const restoreLabel = t('Restore');
 			const choice = await vscode.window.showWarningMessage(
-				`Restaurar os arquivos de ${new Date(backups[0].createdAt).toLocaleString('pt-BR')}? Os arquivos atuais serão substituídos pelos guardados antes da última sincronização.`,
+				t('Restore the files from {0}? The current files will be replaced by the ones saved before the last sync.', new Date(backups[0].createdAt).toLocaleString(dateLocale())),
 				{ modal: true },
-				'Restaurar'
+				restoreLabel
 			);
-			if (choice !== 'Restaurar') {
+			if (choice !== restoreLabel) {
 				return;
 			}
 			const { restoredFiles } = await backup.restoreBackup(backups[0].backupPath, this.userDir, this.claudeDir);
-			void vscode.window.showInformationMessage(`A última sincronização foi desfeita (${restoredFiles.length} arquivo(s) restaurado(s)).`);
+			void vscode.window.showInformationMessage(t('The last sync was undone ({0} file(s) restored).', restoredFiles.length));
 			this.log.info('Backup restaurado com sucesso:', restoredFiles.join(', '));
 		} catch (err) {
 			this.log.error('Erro ao desfazer sincronização:', err);
@@ -730,9 +739,9 @@ class SyncController {
 		const lastSync = this.getLastSync();
 		if (lastSync && lastSync.gistUrl) {
 			await vscode.env.clipboard.writeText(lastSync.gistUrl);
-			void vscode.window.showInformationMessage('URL do Gist copiada para a área de transferência.');
+			void vscode.window.showInformationMessage(t('Gist URL copied to the clipboard.'));
 		} else {
-			void vscode.window.showWarningMessage('Nenhum Gist registrado ainda. Conecte-se para sincronizar.');
+			void vscode.window.showWarningMessage(t('No Gist registered yet. Connect to start syncing.'));
 		}
 	}
 
@@ -741,7 +750,7 @@ class SyncController {
 		if (lastSync && lastSync.gistUrl) {
 			await vscode.env.openExternal(vscode.Uri.parse(lastSync.gistUrl));
 		} else {
-			void vscode.window.showWarningMessage('Nenhum Gist registrado ainda.');
+			void vscode.window.showWarningMessage(t('No Gist registered yet.'));
 		}
 	}
 
@@ -752,38 +761,37 @@ class SyncController {
 			!current,
 			vscode.ConfigurationTarget.Global
 		);
-		const statusText = !current ? 'ativada' : 'desativada';
-		void vscode.window.showInformationMessage(`Sincronização automática ${statusText}.`);
+		void vscode.window.showInformationMessage(!current ? t('Auto sync turned on.') : t('Auto sync turned off.'));
 	}
 
 	async toggleClaudeSync() {
 		const enabled = this.isClaudeSyncEnabled();
 		if (!enabled) {
+			const turnOnLabel = t('Turn On');
 			const choice = await vscode.window.showInformationMessage(
-				'Sincronizar também a configuração do Claude?',
+				t('Also sync the Claude configuration?'),
 				{
 					modal: true,
-					detail: 'Serão enviados ao seu Gist secreto: o CLAUDE.md global e os arquivos de ~/.claude/commands, agents e skills (somente texto, até 200 KB cada). ' +
-						'Login, histórico de conversas e settings.json do Claude nunca são enviados, e arquivos com chaves ou tokens são pulados. ' +
-						'Lembre-se: quem tiver o link do Gist secreto consegue ler o conteúdo, então não deixe nada confidencial nesses arquivos.'
+					detail: t('The following will be sent to your secret Gist: the global CLAUDE.md and the files in ~/.claude/commands, agents and skills (text only, up to 200 KB each). Claude login, conversation history and settings.json are never sent, and files with keys or tokens are skipped. Remember: anyone who has the secret Gist link can read the content, so do not leave anything confidential in those files.')
 				},
-				'Ligar'
+				turnOnLabel
 			);
-			if (choice !== 'Ligar') {
+			if (choice !== turnOnLabel) {
 				return;
 			}
 		}
 		await vscode.workspace.getConfiguration('agentecode.sync').update('syncClaudeConfig', !enabled, vscode.ConfigurationTarget.Global);
-		void vscode.window.showInformationMessage(`Sincronização da configuração do Claude ${!enabled ? 'ligada' : 'desligada'}.`);
+		void vscode.window.showInformationMessage(!enabled ? t('Claude configuration sync turned on.') : t('Claude configuration sync turned off.'));
 	}
 
 	async disconnect() {
+		const disconnectLabel = t('Disconnect');
 		const choice = await vscode.window.showWarningMessage(
-			'Deseja realmente desconectar? O token de acesso será removido do AgenteCode. O Gist no GitHub será mantido.',
+			t('Do you really want to disconnect? The access token will be removed from AgenteCode. The Gist on GitHub will be kept.'),
 			{ modal: true },
-			'Desconectar'
+			disconnectLabel
 		);
-		if (choice !== 'Desconectar') {
+		if (choice !== disconnectLabel) {
 			return;
 		}
 
@@ -791,7 +799,7 @@ class SyncController {
 		await this.setLastSync(null);
 		await this.setUserLogin('');
 		ui.updateStatusBar(this.statusBar, 'idle');
-		void vscode.window.showInformationMessage('Desconectado do GitHub com sucesso.');
+		void vscode.window.showInformationMessage(t('Disconnected from GitHub successfully.'));
 	}
 
 	/**
@@ -835,12 +843,13 @@ class SyncController {
 						});
 						return;
 					}
+					const viewLabel = t('View Changes');
 					const choice = await vscode.window.showInformationMessage(
-						'Há configurações mais novas no GitHub prontas para download.',
-						'Ver mudanças',
-						'Agora não'
+						t('There are newer settings on GitHub ready to download.'),
+						viewLabel,
+						t('Not Now')
 					);
-					if (choice === 'Ver mudanças') {
+					if (choice === viewLabel) {
 						await this.downloadFromGitHub();
 					}
 				}
@@ -893,7 +902,7 @@ class SyncController {
 					const outcome = await this._uploadWithToken(token, 'Envio automático', { auto: true });
 					if (outcome === 'blocked') {
 						ui.updateStatusBar(this.statusBar, 'conflict');
-						void vscode.window.showWarningMessage('A sincronização automática foi pausada: as configurações mudaram aqui e no GitHub. Abra o menu de sincronização para resolver.');
+						void vscode.window.showWarningMessage(t('Auto sync was paused: settings changed here and on GitHub. Open the sync menu to resolve it.'));
 					} else if (outcome === 'notifyDownload') {
 						ui.updateStatusBar(this.statusBar, 'idle');
 					} else {

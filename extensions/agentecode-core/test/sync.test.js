@@ -11,6 +11,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
+const i18n = require('../lib/i18n');
 const config = require('../lib/sync/config');
 const jsonc = require('../lib/sync/jsonc');
 const exclusions = require('../lib/sync/exclusions');
@@ -22,7 +23,20 @@ const backup = require('../lib/sync/backup');
 const claudeConfig = require('../lib/sync/claudeConfig');
 const { createFakeGitHub } = require('./fakeGitHub');
 
+// Os testes abaixo validam as mensagens em portugues (via dicionario); o teste de ingles troca o idioma e restaura.
+i18n.setLanguage('pt');
+
 describe('Sincronizacao de Configuracoes - Nucleo Puro', () => {
+
+	test('i18n: com idioma en as mensagens do sync saem em ingles', () => {
+		i18n.setLanguage('en');
+		try {
+			const p = plan.createSyncPlan({ localSnapshot: { files: { 'settings.json': '{}' }, fileHashes: {}, extensions: [], compositeHash: 'h' }, remoteFiles: null });
+			assert.equal(p.summary, 'First upload of settings to GitHub.');
+		} finally {
+			i18n.setLanguage('pt');
+		}
+	});
 
 	describe('1. jsonc.js', () => {
 		test('parseJsonc aceita comentarios de linha e bloco e virgula final', () => {

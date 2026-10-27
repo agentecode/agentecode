@@ -9,6 +9,7 @@
 const vscode = require('vscode');
 const core = require('./core');
 const direct = require('./direct');
+const { t, getLanguage } = require('../i18n');
 
 const CONSENT_ASKED = 'claudeUsageBar.directConsentAsked';
 const METER_ID = 'shivakrishnakokkula.claude-usage-meter';
@@ -46,6 +47,7 @@ const STANDALONE_ID = 'alessandrolobo.claude-usage-statusbar-metric';
 const ENABLED_CONTEXT = 'agentecode.usage.enabled';
 
 function registerUsage(context) {
+  core.setTranslator(t, getLanguage() === 'pt' ? 'pt-BR' : 'en-US');
   if (vscode.extensions.getExtension(STANDALONE_ID)) {
     vscode.commands.executeCommand('setContext', ENABLED_CONTEXT, false);
     return;
@@ -63,7 +65,7 @@ function registerUsage(context) {
     main: make('Claude Usage', 10003),
     five: make('Claude Usage 5h', 10002),
     week: make('Claude Usage 7d', 10001),
-    tail: make('Claude Usage custo', 10000),
+    tail: make(t('Claude Usage cost'), 10000),
   };
   const tracker = new core.Tracker();
   const panel = new PanelProvider();
@@ -107,12 +109,13 @@ function registerUsage(context) {
     const opts = options();
     if (opts.fetchLimitsDirectly || opts.meterActive || context.globalState.get(CONSENT_ASKED)) return;
     await context.globalState.update(CONSENT_ASKED, true);
+    const enableLabel = t('Enable');
     const choice = await vscode.window.showInformationMessage(
-      'Claude Usage: mostrar os limites de 5h e 7d da sua assinatura? Para isso a extensão lê o token do Claude Code neste computador e consulta a API de uso da Anthropic (a cada minuto enquanto você usa o Claude). Nada é enviado a outro lugar.',
-      'Ativar',
-      'Agora não',
+      t("Claude Usage: show your subscription's 5h and 7d limits? To do so, the extension reads the Claude Code token on this computer and queries Anthropic's usage API (every minute while you use Claude). Nothing is sent anywhere else."),
+      enableLabel,
+      t('Not now'),
     );
-    if (choice === 'Ativar') await enableDirect();
+    if (choice === enableLabel) await enableDirect();
   };
 
   const pollIfDue = (opts, wantFresh) => {

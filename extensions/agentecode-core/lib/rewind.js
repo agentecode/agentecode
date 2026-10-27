@@ -11,14 +11,15 @@ const path = require('path');
 const { planRewind, absolutizePlan, isInsideAny } = require('./checkpoints');
 const { readIfExists, diffPlanAgainstDisk, applyChange } = require('./rewindPlan');
 const { readHistoryEntries } = require('./review');
+const { t } = require('./i18n');
 
 const KEEP_UNDO_POINTS = 5;
 
-const ACTION_LABEL = {
-	restore: 'volta à versão anterior',
-	recreate: 'é recriado (foi apagado depois)',
-	delete: 'é excluído (não existia ainda)',
-};
+const actionLabel = action => ({
+	restore: t('goes back to the previous version'),
+	recreate: t('is recreated (it was deleted later)'),
+	delete: t('is deleted (it did not exist yet)'),
+})[action];
 
 /**
  * Pergunta quais arquivos restaurar, com opção de ver a diferença de cada um.
@@ -28,23 +29,23 @@ function pickChanges(changes, roots, title) {
 	return new Promise(resolve => {
 		const pick = vscode.window.createQuickPick();
 		pick.title = title;
-		pick.placeholder = 'Desmarque o que NÃO quer mexer. A conversa não volta, e o que foi feito por comandos (Bash) não é desfeito.';
+		pick.placeholder = t('Uncheck what you do NOT want to touch. The conversation does not go back, and what was done by commands (Bash) is not undone.');
 		pick.canSelectMany = true;
 		pick.matchOnDescription = true;
 		const items = changes.map(change => {
 			const root = roots.find(r => isInsideAny(change.file, [r]));
 			return {
 				label: `$(file) ${root ? path.relative(root, change.file) : change.file}`,
-				description: ACTION_LABEL[change.action],
+				description: actionLabel(change.action),
 				change,
-				buttons: change.action === 'restore' ? [{ iconPath: new vscode.ThemeIcon('diff'), tooltip: 'Ver diferença' }] : [],
+				buttons: change.action === 'restore' ? [{ iconPath: new vscode.ThemeIcon('diff'), tooltip: t('View Difference') }] : [],
 			};
 		});
 		pick.items = items;
 		pick.selectedItems = items;
 		pick.onDidTriggerItemButton(e => {
 			const { change } = e.item;
-			void vscode.commands.executeCommand('vscode.diff', vscode.Uri.file(change.file), vscode.Uri.file(change.backup), `${path.basename(change.file)} (atual ↔ após voltar)`);
+			void vscode.commands.executeCommand('vscode.diff', vscode.Uri.file(change.file), vscode.Uri.file(change.backup), t('{0} (current ↔ after rewind)', path.basename(change.file)));
 		});
 		let accepted = false;
 		pick.onDidAccept(() => {
@@ -96,7 +97,7 @@ async function rewindToCheckpoint(context, session, checkpoint) {
 	const entries = await readHistoryEntries(session.file);
 	const rawPlan = planRewind(entries, checkpoint.messageId);
 	if (!rawPlan?.length) {
-		void vscode.window.showInformationMessage('Este ponto não tem arquivos rastreados para voltar.');
+		void vscode.window.showInformationMessage(t('This point has no tracked files to rewind.'));
 		return;
 	}
 
@@ -110,12 +111,12 @@ async function rewindToCheckpoint(context, session, checkpoint) {
 
 	const { changes, missingBackups } = await diffPlanAgainstDisk(inside, session.id);
 	if (!changes.length) {
-		void vscode.window.showInformationMessage('Os arquivos já estão como eram antes desta resposta. Nada para voltar.');
+		void vscode.window.showInformationMessage(t('The files are already as they were before this response. Nothing to rewind.'));
 		return;
 	}
 
 	const shortPrompt = checkpoint.prompt.length > 60 ? `${checkpoint.prompt.slice(0, 60)}…` : checkpoint.prompt;
-	const chosen = await pickChanges(changes, roots, `Voltar arquivos para antes de: ${shortPrompt}`);
+	const chosen = await pickChanges(changes, roots, t('Rewind files to before: {0}', shortPrompt));
 	if (!chosen?.length) {
 		return;
 	}
@@ -123,23 +124,24 @@ async function rewindToCheckpoint(context, session, checkpoint) {
 	// isInsideAny com a raiz igual ao arquivo vale como comparacao de caminhos (ignora maiusculas no Windows)
 	const dirty = chosen.filter(c => vscode.workspace.textDocuments.some(d => d.isDirty && d.uri.scheme === 'file' && isInsideAny(d.uri.fsPath, [c.file])));
 	if (dirty.length) {
-		void vscode.window.showWarningMessage(`Salve ou descarte as alterações abertas no editor antes de voltar: ${dirty.map(d => path.basename(d.file)).join(', ')}.`);
+		void vscode.window.showWarningMessage(t('Save or discard the changes open in the editor before rewinding: {0}.', dirty.map(d => path.basename(d.file)).join(', ')));
 		return;
 	}
 
 	const notes = [];
 	if (outside) {
-		notes.push(`${outside} arquivo(s) fora desta pasta foram ignorados.`);
+		notes.push(t('{0} file(s) outside this folder were ignored.', outside));
 	}
 	if (missingBackups) {
-		notes.push(`${missingBackups} arquivo(s) sem cópia guardada foram ignorados.`);
+		notes.push(t('{0} file(s) without a stored copy were ignored.', missingBackups));
 	}
+	const rewindLabel = t('Rewind Files');
 	const confirm = await vscode.window.showWarningMessage(
-		`Voltar ${chosen.length} arquivo(s) para antes desta resposta?`,
-		{ modal: true, detail: `${notes.join(' ')}${notes.length ? '\n\n' : ''}O estado atual fica guardado e dá para desfazer em "AgenteCode: Desfazer a última volta de arquivos".` },
-		'Voltar arquivos'
+		t('Rewind {0} file(s) to before this response?', chosen.length),
+		{ modal: true, detail: `${notes.join(' ')}${notes.length ? '\n\n' : ''}${t('The current state is kept and you can undo it with "AgenteCode: Undo Last File Rewind".')}` },
+		rewindLabel
 	);
-	if (confirm !== 'Voltar arquivos') {
+	if (confirm !== rewindLabel) {
 		return;
 	}
 
@@ -155,9 +157,9 @@ async function rewindToCheckpoint(context, session, checkpoint) {
 	}
 
 	const done = chosen.length - failed;
-	const undo = 'Desfazer';
+	const undo = t('Undo');
 	const choice = await vscode.window.showInformationMessage(
-		failed ? `${done} arquivo(s) voltaram; ${failed} falharam (veja o console do desenvolvedor).` : `${done} arquivo(s) voltaram para antes desta resposta.`,
+		failed ? t('{0} file(s) rewound; {1} failed (see the developer console).', done, failed) : t('{0} file(s) rewound to before this response.', done),
 		undo
 	);
 	if (choice === undo) {
@@ -176,7 +178,7 @@ async function undoLastRewind(context) {
 	}
 	const latest = names[names.length - 1];
 	if (!latest) {
-		void vscode.window.showInformationMessage('Não há nenhuma volta de arquivos para desfazer.');
+		void vscode.window.showInformationMessage(t('There is no file rewind to undo.'));
 		return;
 	}
 
@@ -200,8 +202,8 @@ async function undoLastRewind(context) {
 		await fs.promises.rm(dir, { recursive: true, force: true });
 	}
 	void vscode.window.showInformationMessage(failed
-		? `Desfeito com ${failed} falha(s) (veja o console do desenvolvedor).`
-		: `Volta desfeita: ${manifest.items.length} arquivo(s) estão como antes.`);
+		? t('Undone with {0} failure(s) (see the developer console).', failed)
+		: t('Rewind undone: {0} file(s) are back as before.', manifest.items.length));
 }
 
 module.exports = { rewindToCheckpoint, undoLastRewind, saveUndoPoint };

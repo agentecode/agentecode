@@ -2,6 +2,15 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.14 - 27/10/2026
+
+AgenteCode now speaks English by default, and Portuguese follows the IDE display language.
+
+- **English first, Portuguese as a translation:** every AgenteCode screen and message (Sync, Claude Usage, Usage History, Agent Changes review, Layouts, update prompts and the sync guide) now has English as its source text. When the IDE display language is Portuguese, the Portuguese texts are shown, the same way any VS Code extension works. Install the Portuguese (Brazil) language pack from the Extensions view to get both the VS Code core and AgenteCode in Portuguese.
+- **Force a language:** the new `agentecode.language` setting (`auto`, `en` or `pt-BR`) overrides the display language for AgenteCode texts only.
+- **Command names and setting descriptions** (menus, Command Palette, Settings) follow the IDE display language through the standard VS Code mechanism.
+- **Not translated on purpose:** these release notes before v1.0.14, the `LEIA-ME.md` written to the Sync Gist (so machines using different languages do not see false changes in each other's Gists) and technical logs.
+
 ## v1.0.13 - 27/10/2026
 
 Layouts salvos e atualização automática mais clara.

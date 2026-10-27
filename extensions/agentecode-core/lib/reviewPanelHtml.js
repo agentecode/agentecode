@@ -8,7 +8,10 @@
 // Pagina (webview) da tela "Alteracoes do agente". O estado chega por mensagem e e desenhado no navegador
 // com textContent (nenhum texto de arquivo vira HTML). Sem VS Code.
 
+const { t, getLanguage } = require('./i18n');
+
 const CLIENT_SCRIPT = `
+// L (textos ja traduzidos) e injetado antes deste script por renderPanelHtml.
 const vscode = acquireVsCodeApi();
 const root = document.getElementById('root');
 
@@ -23,7 +26,7 @@ const STATE_ICONS = {
 	modified: 'M11 7.5C11 9.43 9.43 11 7.5 11C5.57 11 4 9.43 4 7.5C4 5.57 5.57 4 7.5 4C9.43 4 11 5.57 11 7.5ZM14 3.5V11.5C14 12.878 12.878 14 11.5 14H3.5C2.122 14 1 12.878 1 11.5V3.5C1 2.122 2.122 1 3.5 1H11.5C12.878 1 14 2.122 14 3.5ZM13 3.5C13 2.673 12.327 2 11.5 2H3.5C2.673 2 2 2.673 2 3.5V11.5C2 12.327 2.673 13 3.5 13H11.5C12.327 13 13 12.327 13 11.5V3.5Z',
 	deleted: 'M11.5 1H3.5C2.122 1 1 2.122 1 3.5V11.5C1 12.878 2.122 14 3.5 14H11.5C12.878 14 14 12.878 14 11.5V3.5C14 2.122 12.878 1 11.5 1ZM13 11.5C13 12.327 12.327 13 11.5 13H3.5C2.673 13 2 12.327 2 11.5V3.5C2 2.673 2.673 2 3.5 2H11.5C12.327 2 13 2.673 13 3.5V11.5ZM11 7.5C11 7.776 10.776 8 10.5 8H4.5C4.224 8 4 7.776 4 7.5C4 7.224 4.224 7 4.5 7H10.5C10.776 7 11 7.224 11 7.5Z'
 };
-const STATE_TITLES = { added: 'Arquivo novo', modified: 'Arquivo modificado', deleted: 'Arquivo exclu\\u00eddo' };
+const STATE_TITLES = { added: L.stateAdded, modified: L.stateModified, deleted: L.stateDeleted };
 function stateIcon(status) {
 	const svgNs = 'http://www.w3.org/2000/svg';
 	const svg = document.createElementNS(svgNs, 'svg');
@@ -40,6 +43,7 @@ function stateIcon(status) {
 	svg.appendChild(path);
 	return svg;
 }
+function fmt(text, value) { return text.replace('{0}', value); }
 function send(message) { vscode.postMessage(message); }
 function button(cls, label, title, onClick) {
 	const b = el('button', cls, label);
@@ -59,12 +63,12 @@ function render(state) {
 	root.textContent = '';
 	const header = el('div', 'header');
 	const total = el('div', 'total');
-	total.appendChild(el('span', 'files', state.totals.files + (state.totals.files === 1 ? ' arquivo' : ' arquivos')));
+	total.appendChild(el('span', 'files', fmt(state.totals.files === 1 ? L.filesOne : L.filesMany, state.totals.files)));
 	total.appendChild(counts(state.totals.added, state.totals.removed));
 	header.appendChild(total);
 	const bulk = el('div', 'bulk');
-	const accept = button('accept', '\\u2713 Aceitar tudo', 'Marca todos os arquivos como revisados', () => send({ type: 'keepAll' }));
-	const discard = button('discard', '\\u21b6 Descartar tudo', 'Volta todos os arquivos para o estado de antes (pede confirma\\u00e7\\u00e3o)', () => send({ type: 'revertAll' }));
+	const accept = button('accept', '\\u2713 ' + L.acceptAll, L.acceptAllTip, () => send({ type: 'keepAll' }));
+	const discard = button('discard', '\\u21b6 ' + L.discardAll, L.discardAllTip, () => send({ type: 'revertAll' }));
 	if (!state.totals.files) { accept.disabled = true; discard.disabled = true; }
 	bulk.appendChild(accept);
 	bulk.appendChild(discard);
@@ -72,16 +76,16 @@ function render(state) {
 	root.appendChild(header);
 
 	const tools = el('div', 'tools');
-	tools.appendChild(button('link', 'Comparar com: ' + state.base + ' \\u25be', 'Escolher o ponto de compara\\u00e7\\u00e3o', () => send({ type: 'chooseBase' })));
-	tools.appendChild(button('link', 'Trocar conversa', 'Escolher outra conversa do agente', () => send({ type: 'chooseSession' })));
-	tools.appendChild(button('link', 'Atualizar', 'Recalcular agora', () => send({ type: 'refresh' })));
+	tools.appendChild(button('link', fmt(L.compareWith, state.base) + ' \\u25be', L.compareTip, () => send({ type: 'chooseBase' })));
+	tools.appendChild(button('link', L.switchChat, L.switchChatTip, () => send({ type: 'chooseSession' })));
+	tools.appendChild(button('link', L.refresh, L.refreshTip, () => send({ type: 'refresh' })));
 	root.appendChild(tools);
 
-	if (state.conversation) { root.appendChild(el('div', 'sub', 'Conversa: ' + state.conversation)); }
+	if (state.conversation) { root.appendChild(el('div', 'sub', fmt(L.conversation, state.conversation))); }
 	if (state.hiddenReviewed || state.showReviewed) {
 		const line = el('div', 'sub');
-		line.appendChild(document.createTextNode(state.hiddenReviewed + ' j\\u00e1 revisado(s) ' + (state.showReviewed ? 'vis\\u00edvel(is) ' : 'oculto(s) ')));
-		line.appendChild(button('link', state.showReviewed ? 'ocultar' : 'mostrar', null, () => send({ type: 'toggleReviewed' })));
+		line.appendChild(document.createTextNode(fmt(state.showReviewed ? L.reviewedVisible : L.reviewedHidden, state.hiddenReviewed) + ' '));
+		line.appendChild(button('link', state.showReviewed ? L.hide : L.show, null, () => send({ type: 'toggleReviewed' })));
 		root.appendChild(line);
 	}
 
@@ -92,7 +96,7 @@ function render(state) {
 	const list = el('div', 'list');
 	for (const item of state.items) {
 		const row = el('div', 'row' + (item.reviewed ? ' reviewed' : ''));
-		const chevron = button('chev', item.expanded ? '\\u25be' : '\\u25b8', 'Mostrar os trechos', () => send({ type: 'toggle', file: item.file }));
+		const chevron = button('chev', item.expanded ? '\\u25be' : '\\u25b8', L.showHunks, () => send({ type: 'toggle', file: item.file }));
 		if (item.status !== 'modified') { chevron.style.visibility = 'hidden'; }
 		row.appendChild(chevron);
 		row.appendChild(stateIcon(item.status));
@@ -105,36 +109,34 @@ function render(state) {
 		name.addEventListener('click', () => send({ type: 'open', file: item.file }));
 		row.appendChild(name);
 		if (item.dir) { row.appendChild(el('span', 'dir', item.dir)); }
-		if (item.status === 'added') { row.appendChild(el('span', 'tag new', 'NOVO')); }
-		if (item.status === 'deleted') { row.appendChild(el('span', 'tag gone', 'EXCLU\\u00cdDO')); }
+		if (item.status === 'added') { row.appendChild(el('span', 'tag new', L.tagNew)); }
+		if (item.status === 'deleted') { row.appendChild(el('span', 'tag gone', L.tagDeleted)); }
 		if (item.source === 'terminal') {
 			const origin = el('span', 'tag term', item.approx ? 'TERMINAL ~' : 'TERMINAL');
-			origin.title = item.approx
-				? 'Alterado fora do registro do agente (terminal ou outra ferramenta). Compara\\u00e7\\u00e3o aproximada, com o \\u00faltimo commit anterior \\u00e0 conversa.'
-				: 'Alterado por comando de terminal ou outra ferramenta (fora do registro do agente).';
+			origin.title = item.approx ? L.terminalApprox : L.terminalExact;
 			row.appendChild(origin);
 		}
 		row.appendChild(el('span', 'spacer'));
 		row.appendChild(counts(item.added, item.removed));
 		const actions = el('span', 'actions');
-		actions.appendChild(button('icon keep', '\\u2713', 'Manter (marcar como revisado)', () => send({ type: 'keep', file: item.file })));
-		actions.appendChild(button('icon undo', '\\u21b6', 'Voltar este arquivo', () => send({ type: 'revert', file: item.file })));
+		actions.appendChild(button('icon keep', '\\u2713', L.keepTip, () => send({ type: 'keep', file: item.file })));
+		actions.appendChild(button('icon undo', '\\u21b6', L.revertTip, () => send({ type: 'revert', file: item.file })));
 		row.appendChild(actions);
 		row.addEventListener('dblclick', () => send({ type: 'open', file: item.file }));
 		list.appendChild(row);
 
 		if (item.expanded) {
 			if (!item.hunks || !item.hunks.length) {
-				list.appendChild(el('div', 'hunk none', 'Nenhum trecho pendente'));
+				list.appendChild(el('div', 'hunk none', L.noHunks));
 			}
 			for (const hunk of item.hunks || []) {
 				const line = el('div', 'hunk');
-				line.appendChild(el('span', 'at', '@linha ' + hunk.line));
+				line.appendChild(el('span', 'at', fmt(L.atLine, hunk.line)));
 				line.appendChild(el('span', 'spacer'));
 				line.appendChild(counts(hunk.added, hunk.removed));
 				const hunkActions = el('span', 'actions');
-				hunkActions.appendChild(button('icon keep', '\\u2713', 'Manter este trecho', () => send({ type: 'keepHunk', file: item.file, key: hunk.key })));
-				hunkActions.appendChild(button('icon undo', '\\u21b6', 'Desfazer este trecho', () => send({ type: 'undoHunk', file: item.file, key: hunk.key })));
+				hunkActions.appendChild(button('icon keep', '\\u2713', L.keepHunkTip, () => send({ type: 'keepHunk', file: item.file, key: hunk.key })));
+				hunkActions.appendChild(button('icon undo', '\\u21b6', L.undoHunkTip, () => send({ type: 'undoHunk', file: item.file, key: hunk.key })));
 				line.appendChild(hunkActions);
 				line.addEventListener('click', () => send({ type: 'goto', file: item.file, line: hunk.line }));
 				list.appendChild(line);
@@ -200,15 +202,53 @@ button{font:inherit;cursor:pointer;color:inherit;background:transparent;border:0
 .note{padding:10px 12px 0;color:var(--vscode-descriptionForeground);font-size:11px}
 `;
 
+/** Textos do navegador, ja traduzidos, como JSON seguro para ir dentro de <script> (nunca chama t() no navegador). */
+function labelsJson() {
+	const labels = {
+		stateAdded: t('New file'),
+		stateModified: t('Modified file'),
+		stateDeleted: t('Deleted file'),
+		filesOne: t('{0} file'),
+		filesMany: t('{0} files'),
+		acceptAll: t('Accept all'),
+		acceptAllTip: t('Marks all files as reviewed'),
+		discardAll: t('Discard all'),
+		discardAllTip: t('Reverts all files to their previous state (asks for confirmation)'),
+		compareWith: t('Compare with: {0}'),
+		compareTip: t('Choose the comparison point'),
+		switchChat: t('Switch conversation'),
+		switchChatTip: t('Choose another agent conversation'),
+		refresh: t('Refresh'),
+		refreshTip: t('Recalculate now'),
+		conversation: t('Conversation: {0}'),
+		reviewedVisible: t('{0} already reviewed (visible)'),
+		reviewedHidden: t('{0} already reviewed (hidden)'),
+		hide: t('hide'),
+		show: t('show'),
+		showHunks: t('Show the hunks'),
+		tagNew: t('NEW'),
+		tagDeleted: t('DELETED'),
+		terminalApprox: t('Changed outside the agent log (terminal or another tool). Approximate comparison, against the last commit before the conversation.'),
+		terminalExact: t('Changed by a terminal command or another tool (outside the agent log).'),
+		keepTip: t('Keep (mark as reviewed)'),
+		revertTip: t('Revert this file'),
+		noHunks: t('No pending hunks'),
+		atLine: t('@line {0}'),
+		keepHunkTip: t('Keep this hunk'),
+		undoHunkTip: t('Undo this hunk')
+	};
+	return JSON.stringify(labels).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+}
+
 /**
  * HTML completo da tela.
  * @param {{ nonce: string, cspSource: string }} options
  * @returns {string}
  */
 function renderPanelHtml({ nonce, cspSource }) {
-	return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+	return `<!doctype html><html lang="${getLanguage() === 'pt' ? 'pt-BR' : 'en'}"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
-<style>${STYLE}</style></head><body><div id="root"></div><script nonce="${nonce}">${CLIENT_SCRIPT}</script></body></html>`;
+<style>${STYLE}</style></head><body><div id="root"></div><script nonce="${nonce}">const L = ${labelsJson()};${CLIENT_SCRIPT}</script></body></html>`;
 }
 
 module.exports = { renderPanelHtml, CLIENT_SCRIPT };

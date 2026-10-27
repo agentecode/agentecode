@@ -7,7 +7,11 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const i18n = require('../lib/i18n');
 const { sessionToMarkdown, projectSlug, slugify } = require('../lib/sessionMarkdown');
+
+// os textos esperados abaixo sao os em portugues, vindos do dicionario
+i18n.setLanguage('pt');
 
 test('projectSlug e slugify', () => {
 	assert.equal(projectSlug('c:/WorkStation/AgenteCode'), 'c--WorkStation-AgenteCode');
@@ -35,6 +39,15 @@ test('sessionToMarkdown converte conversa, ferramentas e protege blocos de códi
 
 	const without = sessionToMarkdown(entries, { includeToolResults: false });
 	assert.doesNotMatch(without, /a\.txt/);
+
+	i18n.setLanguage('en');
+	try {
+		const english = sessionToMarkdown(entries, { title: 'Test', sessionId: 'abc' });
+		assert.match(english, /\*\*Model:\*\* claude-sonnet-5-5/);
+		assert.match(english, /## User/);
+	} finally {
+		i18n.setLanguage('pt');
+	}
 });
 
 const fs = require('fs');

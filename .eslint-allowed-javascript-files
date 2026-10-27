@@ -24,6 +24,13 @@ build/next/devTunnelsShims/process.js
 build/next/devTunnelsShims/utf8Validate.cjs
 build/next/devTunnelsShims/vscodeJsonrpc.cjs
 eslint.config.js
+extensions/agentecode-core/lib/i18n.js
+extensions/agentecode-core/lib/locales/pt-br.js
+extensions/agentecode-core/lib/locales/pt-br/misc.js
+extensions/agentecode-core/lib/locales/pt-br/review.js
+extensions/agentecode-core/lib/locales/pt-br/sync.js
+extensions/agentecode-core/lib/locales/pt-br/usage.js
+extensions/agentecode-core/test/i18n.test.js
 extensions/copilot/.mocha-multi-reporters.js
 extensions/copilot/.mocharc.js
 extensions/copilot/.vscode-test.mjs

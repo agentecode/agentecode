@@ -8,31 +8,32 @@
 const vscode = require('vscode');
 const path = require('path');
 const { listSessionFiles, readSessionSummary, exportSessionFile, slugify } = require('./sessionMarkdown');
+const { t, getLanguage } = require('./i18n');
 
 async function pickSession() {
 	const folders = (vscode.workspace.workspaceFolders ?? []).map(f => f.uri.fsPath);
 	const files = await listSessionFiles(folders);
 	if (!files.length) {
 		void vscode.window.showInformationMessage(folders.length
-			? 'Nenhuma sessão do agente foi encontrada para esta pasta.'
-			: 'Nenhuma sessão do agente foi encontrada.');
+			? t('No agent session was found for this folder.')
+			: t('No agent session was found.'));
 		return;
 	}
 
-	const items = await vscode.window.withProgress({ location: vscode.ProgressLocation.Window, title: 'Lendo sessões do agente…' }, () =>
+	const items = await vscode.window.withProgress({ location: vscode.ProgressLocation.Window, title: t('Reading agent sessions…') }, () =>
 		Promise.all(files.map(async f => {
 			const summary = await readSessionSummary(f.file);
 			return {
 				label: summary.title,
-				description: new Date(f.mtime).toLocaleString('pt-BR'),
+				description: new Date(f.mtime).toLocaleString(getLanguage() === 'pt' ? 'pt-BR' : 'en-US'),
 				detail: folders.length ? undefined : summary.cwd,
 				file: f,
 			};
 		})));
 
 	return vscode.window.showQuickPick(items, {
-		title: 'Exportar sessão para Markdown',
-		placeHolder: 'Escolha a sessão que será exportada',
+		title: t('Export Session to Markdown'),
+		placeHolder: t('Choose the session to export'),
 		matchOnDetail: true,
 	});
 }
@@ -62,7 +63,7 @@ async function exportSession(sessionItem) {
 			maxToolResultChars: config.get('maxToolResultChars', 1500),
 		});
 	} catch (error) {
-		void vscode.window.showErrorMessage(`Não foi possível ler a sessão: ${error.message}`);
+		void vscode.window.showErrorMessage(t('Could not read the session: {0}', error.message));
 		return;
 	}
 
@@ -75,8 +76,8 @@ async function exportSession(sessionItem) {
 	const target = await vscode.window.showSaveDialog({
 		defaultUri: suggestion,
 		filters: { Markdown: ['md'] },
-		saveLabel: 'Exportar',
-		title: 'Salvar sessão como Markdown',
+		saveLabel: t('Export'),
+		title: t('Save Session as Markdown'),
 	});
 	if (!target) {
 		return;
@@ -84,8 +85,8 @@ async function exportSession(sessionItem) {
 
 	await vscode.workspace.fs.createDirectory(vscode.Uri.file(path.dirname(target.fsPath)));
 	await vscode.workspace.fs.writeFile(target, Buffer.from(markdown, 'utf8'));
-	const open = 'Abrir';
-	const choice = await vscode.window.showInformationMessage(`Sessão exportada para ${path.basename(target.fsPath)}.`, open);
+	const open = t('Open');
+	const choice = await vscode.window.showInformationMessage(t('Session exported to {0}.', path.basename(target.fsPath)), open);
 	if (choice === open) {
 		await vscode.commands.executeCommand('vscode.open', target);
 	}

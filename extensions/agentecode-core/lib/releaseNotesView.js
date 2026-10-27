@@ -9,6 +9,7 @@ const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
 const { parseVersion, compareVersions, notesBetween, sectionFor } = require('./releaseNotes');
+const { t } = require('./i18n');
 
 const LAST_SEEN_KEY = 'agentecode.releaseNotes.lastSeen';
 const SHOW_DELAY_MS = 4000;
@@ -32,7 +33,7 @@ function readNotesFile(context) {
 async function openNotes(context, text, label) {
 	await fs.promises.mkdir(context.globalStorageUri.fsPath, { recursive: true });
 	const file = path.join(context.globalStorageUri.fsPath, 'novidades.md');
-	await fs.promises.writeFile(file, `# Novidades do AgenteCode ${label}\n\n${text}\n`, 'utf8');
+	await fs.promises.writeFile(file, `${t('# What\'s new in AgenteCode {0}', label).trimEnd()}\n\n${text}\n`, 'utf8');
 	await vscode.commands.executeCommand('markdown.showPreview', vscode.Uri.file(file));
 }
 
@@ -45,7 +46,7 @@ async function showCurrentNotes(context) {
 	const version = installedVersion();
 	const text = version ? sectionFor(markdown, version) : markdown;
 	if (!text) {
-		void vscode.window.showInformationMessage(`Não há notas escritas para a versão ${version}.`);
+		void vscode.window.showInformationMessage(t('There are no written notes for version {0}.', version));
 		return;
 	}
 	await openNotes(context, text, version ? `v${version}` : '');

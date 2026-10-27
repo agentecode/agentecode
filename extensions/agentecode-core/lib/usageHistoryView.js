@@ -8,6 +8,7 @@
 const path = require('path');
 const vscode = require('vscode');
 const { loadHistory, summarize } = require('./usageHistory');
+const { t, getLanguage } = require('./i18n');
 
 const RANGES = [7, 30, 90];
 
@@ -39,7 +40,7 @@ function renderChart(byDay, today) {
 		const x = padL + i * slot + (slot - barW) / 2;
 		const y = padT + plotH - h;
 		const cls = d.date === today ? 'bar today' : 'bar';
-		return `<g><title>${esc(shortDate(d.date))}: ${usd(d.usd)} (${formatTokens(d.tokens)} tokens)</title>` +
+		return `<g><title>${esc(shortDate(d.date))}: ${usd(d.usd)} (${esc(t('{0} tokens', formatTokens(d.tokens)))})</title>` +
 			`<rect class="hit" x="${(padL + i * slot).toFixed(1)}" y="${padT}" width="${slot.toFixed(1)}" height="${plotH}"/>` +
 			`<rect class="${cls}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="1.5"/></g>`;
 	}).join('');
@@ -48,7 +49,7 @@ function renderChart(byDay, today) {
 	const labels = byDay.map((d, i) => (i % labelEvery === 0 || i === byDay.length - 1)
 		? `<text class="axis" x="${(padL + i * slot + slot / 2).toFixed(1)}" y="${H - 6}" text-anchor="middle">${esc(shortDate(d.date))}</text>` : '').join('');
 
-	return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Gasto por dia">` +
+	return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(t('Spending per day'))}">` +
 		`<line class="grid" x1="${padL}" y1="${padT}" x2="${W - 6}" y2="${padT}"/>` +
 		`<line class="grid" x1="${padL}" y1="${padT + plotH / 2}" x2="${W - 6}" y2="${padT + plotH / 2}"/>` +
 		`<line class="grid" x1="${padL}" y1="${padT + plotH}" x2="${W - 6}" y2="${padT + plotH}"/>` +
@@ -64,7 +65,7 @@ function renderChart(byDay, today) {
  */
 function renderShareTable(rows) {
 	if (rows.length === 0) {
-		return '<div class="sub">Nada neste período.</div>';
+		return `<div class="sub">${esc(t('Nothing in this period.'))}</div>`;
 	}
 	const max = Math.max(0.0001, ...rows.map(r => r.usd));
 	return '<table class="share">' + rows.map(r =>
@@ -79,11 +80,11 @@ function renderShareTable(rows) {
  * @returns {string}
  */
 function renderHistoryHtml(summary, { today, nonce, cspSource }) {
-	const t = summary.totals;
+	const totals = summary.totals;
 	const tile = (label, value) => `<div class="tile"><div class="v">${esc(value)}</div><div class="l">${esc(label)}</div></div>`;
-	const buttons = RANGES.map(n => `<button data-days="${n}" class="${n === summary.days ? 'on' : ''}">${n} dias</button>`).join('');
+	const buttons = RANGES.map(n => `<button data-days="${n}" class="${n === summary.days ? 'on' : ''}">${esc(t('{0} days', n))}</button>`).join('');
 
-	return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+	return `<!doctype html><html lang="${getLanguage() === 'pt' ? 'pt-BR' : 'en'}"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
 <style>
 body{font-family:var(--vscode-font-family);font-size:var(--vscode-font-size);color:var(--vscode-foreground);padding:8px 22px 28px;max-width:860px}
@@ -108,17 +109,17 @@ td.meter{width:34%}td.meter span{display:block;height:8px;border-radius:4px;back
 td.num{text-align:right;white-space:nowrap}td.extra{color:var(--vscode-descriptionForeground);font-size:12px;text-align:right;white-space:nowrap}
 .note{margin-top:26px;font-size:12px;color:var(--vscode-descriptionForeground);line-height:1.5}
 </style></head><body>
-<h1>Histórico de uso e custo</h1>
-<div class="sub">Calculado a partir das conversas guardadas neste computador (inclui subagentes).</div>
+<h1>${esc(t('Usage and cost history'))}</h1>
+<div class="sub">${esc(t('Calculated from the conversations stored on this computer (includes subagents).'))}</div>
 <div class="range">${buttons}</div>
-<div class="tiles">${tile('Hoje', usd(t.today))}${tile('Últimos 7 dias', usd(t.week))}${tile('Últimos 30 dias', usd(t.month))}${tile(`Período (${summary.days} dias)`, usd(t.range))}${tile('Sessões no período', `${t.sessions}`)}</div>
-<h2>Gasto por dia</h2>
+<div class="tiles">${tile(t('Today'), usd(totals.today))}${tile(t('Last 7 days'), usd(totals.week))}${tile(t('Last 30 days'), usd(totals.month))}${tile(t('Period ({0} days)', summary.days), usd(totals.range))}${tile(t('Sessions in the period'), `${totals.sessions}`)}</div>
+<h2>${esc(t('Spending per day'))}</h2>
 ${renderChart(summary.byDay, today)}
-<h2>Por projeto</h2>
-${renderShareTable(summary.byProject.slice(0, 12).map(p => ({ label: p.name, usd: p.usd, extra: `${p.sessions} sessão(ões) · ${formatTokens(p.tokens)} tokens` })))}
-<h2>Por modelo</h2>
+<h2>${esc(t('By project'))}</h2>
+${renderShareTable(summary.byProject.slice(0, 12).map(p => ({ label: p.name, usd: p.usd, extra: t('{0} session(s) · {1} tokens', p.sessions, formatTokens(p.tokens)) })))}
+<h2>${esc(t('By model'))}</h2>
 ${renderShareTable(summary.byModel.map(m => ({ label: m.model, usd: m.usd })))}
-<div class="note">Valores estimados pela tabela de preços da API a partir dos transcripts; <b>não são o valor de cobrança</b>. Na assinatura, o que limita o uso são as janelas de 5h e 7d (veja a barra de uso).${summary.unpriced ? ' Há respostas de modelos sem preço conhecido, que ficaram fora da soma.' : ''} Só aparecem conversas ainda presentes neste computador.</div>
+<div class="note">${t('Values estimated from the API price table using the transcripts; {0}.', `<b>${esc(t('they are not the billed amount'))}</b>`)} ${esc(t('On a subscription, usage is limited by the 5h and 7d windows (see the usage bar).'))}${summary.unpriced ? ' ' + esc(t('Some responses from models with no known price were left out of the total.')) : ''} ${esc(t('Only conversations still present on this computer are shown.'))}</div>
 <script nonce="${nonce}">const vscode=acquireVsCodeApi();document.querySelectorAll('button[data-days]').forEach(b=>b.addEventListener('click',()=>vscode.postMessage({type:'range',days:Number(b.dataset.days)})));</script>
 </body></html>`;
 }
@@ -139,7 +140,7 @@ function registerUsageHistory(context) {
 			return;
 		}
 		const target = panel;
-		target.webview.html = loadingHtml('Calculando o histórico (a primeira vez pode levar alguns segundos)...');
+		target.webview.html = loadingHtml(t('Calculating the history (the first time may take a few seconds)...'));
 		try {
 			const entries = await loadHistory({ cacheFile });
 			if (panel !== target) {
@@ -151,7 +152,7 @@ function registerUsageHistory(context) {
 			target.webview.html = renderHistoryHtml(summary, { today: summary.byDay[summary.byDay.length - 1].date, nonce, cspSource: target.webview.cspSource });
 		} catch (err) {
 			if (panel === target) {
-				target.webview.html = loadingHtml(`Não foi possível ler o histórico: ${err && err.message ? err.message : err}`);
+				target.webview.html = loadingHtml(t('Could not read the history: {0}', err && err.message ? err.message : err));
 			}
 		}
 	};
@@ -160,7 +161,7 @@ function registerUsageHistory(context) {
 		if (panel) {
 			panel.reveal();
 		} else {
-			panel = vscode.window.createWebviewPanel('agentecode.usageHistory', 'Histórico de uso', vscode.ViewColumn.Active, { enableScripts: true });
+			panel = vscode.window.createWebviewPanel('agentecode.usageHistory', t('Usage history'), vscode.ViewColumn.Active, { enableScripts: true });
 			panel.onDidDispose(() => { panel = undefined; });
 			panel.webview.onDidReceiveMessage(msg => {
 				if (msg && msg.type === 'range' && RANGES.includes(msg.days)) {

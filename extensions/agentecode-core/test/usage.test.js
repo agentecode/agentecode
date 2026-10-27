@@ -9,6 +9,11 @@
 // Teste de fumaça da lógica pura: node test.js [pasta-do-projeto]
 const assert = require('assert');
 const core = require('../lib/usage/core');
+const i18n = require('../lib/i18n');
+
+// os textos esperados abaixo sao os em portugues, vindos do dicionario
+i18n.setLanguage('pt');
+core.setTranslator(i18n.t, 'pt-BR');
 
 assert.strictEqual(core.formatTokens(65_300), '65k');
 assert.strictEqual(core.formatTokens(1_000_000), '1M');
@@ -295,6 +300,12 @@ const directMod = require('../lib/usage/direct');
   assert.strictEqual(rv.segments.five, '5h –');
   assert.ok(rv.segments.week.startsWith('7d 16%'));
   assert.ok(core.renderPanel(b, at, allOpts, core.withAge(restarted, at, 30)).includes('Janela reiniciada'));
+  // em ingles (idioma padrao) a mesma mensagem sai no texto-fonte
+  i18n.setLanguage('en');
+  core.setTranslator(i18n.t, 'en-US');
+  assert.ok(core.renderPanel(b, at, allOpts, core.withAge(restarted, at, 30)).includes('Window restarted'));
+  assert.ok(core.render(b, at, allOpts, null).tooltip.includes('current session'));
+  i18n.setLanguage('pt');
   console.log('ok');
 })().catch(e => {
   console.error(e);

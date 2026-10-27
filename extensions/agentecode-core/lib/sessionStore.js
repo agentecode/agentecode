@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 const { claudeConfigDir, listSessionFiles, readSessionSummary } = require('./sessionMarkdown');
+const { t } = require('./i18n');
 
 /** Sessao alterada ha menos que isto e considerada em uso (o Claude Code ainda grava nela). */
 const ACTIVE_WINDOW_MS = 2 * 60 * 1000;
@@ -27,7 +28,7 @@ async function listSessions(workspaceFolders, limit = 200) {
 		const key = `${f.file}|${f.mtime}|${f.size}`;
 		let summary = summaryCache.get(key);
 		if (!summary) {
-			summary = await readSessionSummary(f.file).catch(() => ({ title: 'Sessao ilegivel' }));
+			summary = await readSessionSummary(f.file).catch(() => ({ title: t('Unreadable session') }));
 			summaryCache.set(key, summary);
 		}
 		return { ...f, title: summary.title, cwd: summary.cwd };

@@ -1,8 +1,8 @@
 {
   "name": "agentecode-core",
   "displayName": "AgenteCode Core",
-  "description": "Recursos próprios do AgenteCode: histórico de sessões do agente, volta de arquivos (checkpoint), exportação para Markdown e notas de versão.",
-  "version": "1.0.13",
+  "description": "%description%",
+  "version": "1.0.14",
   "publisher": "agentecode",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -41,209 +41,209 @@
   },
   "contributes": {
     "configurationDefaults": {
-      "editor.codeLensFontSize": 13
+      "claudeCode.preferredLocation": "sidebar"
     },
     "commands": [
       {
         "command": "agentecode.exportSessionToMarkdown",
-        "title": "Exportar sessão do agente para Markdown",
+        "title": "%command.exportSession.title%",
         "category": "AgenteCode",
         "icon": "$(export)"
       },
       {
         "command": "agentecode.undoLastRewind",
-        "title": "Desfazer a última volta de arquivos",
+        "title": "%command.undoLastRewind.title%",
         "category": "AgenteCode"
       },
       {
         "command": "agentecode.sessions.refresh",
-        "title": "Atualizar sessões",
+        "title": "%command.sessions.refresh.title%",
         "category": "AgenteCode",
         "icon": "$(refresh)"
       },
       {
         "command": "agentecode.sessions.search",
-        "title": "Buscar nas sessões do agente",
+        "title": "%command.sessions.search.title%",
         "category": "AgenteCode",
         "icon": "$(search)"
       },
       {
         "command": "agentecode.sessions.clearSearch",
-        "title": "Limpar busca de sessões",
+        "title": "%command.sessions.clearSearch.title%",
         "category": "AgenteCode",
         "icon": "$(clear-all)"
       },
       {
         "command": "agentecode.sessions.resume",
-        "title": "Retomar sessão no Claude Code",
+        "title": "%command.sessions.resume.title%",
         "category": "AgenteCode",
         "icon": "$(play)"
       },
       {
         "command": "agentecode.sessions.delete",
-        "title": "Excluir sessão (Lixeira)",
+        "title": "%command.sessions.delete.title%",
         "category": "AgenteCode",
         "icon": "$(trash)"
       },
       {
         "command": "agentecode.sessions.rewind",
-        "title": "Voltar arquivos para antes desta resposta",
+        "title": "%command.sessions.rewind.title%",
         "category": "AgenteCode",
         "icon": "$(discard)"
       },
       {
         "command": "agentecode.showReleaseNotes",
-        "title": "Mostrar notas da versão",
+        "title": "%command.showReleaseNotes.title%",
         "category": "AgenteCode"
       },
       {
         "command": "agentecode.review.refresh",
-        "title": "Atualizar alterações do agente",
+        "title": "%command.review.refresh.title%",
         "category": "AgenteCode",
         "icon": "$(refresh)"
       },
       {
         "command": "agentecode.review.open",
-        "title": "Ver diferença",
+        "title": "%command.review.open.title%",
         "category": "AgenteCode"
       },
       {
         "command": "agentecode.review.keep",
-        "title": "Marcar como revisado",
+        "title": "%command.review.keep.title%",
         "category": "AgenteCode",
         "icon": "$(check)"
       },
       {
         "command": "agentecode.review.keepAll",
-        "title": "Marcar tudo como revisado",
+        "title": "%command.review.keepAll.title%",
         "category": "AgenteCode",
         "icon": "$(check-all)"
       },
       {
         "command": "agentecode.review.revert",
-        "title": "Voltar este arquivo para antes da conversa",
+        "title": "%command.review.revert.title%",
         "category": "AgenteCode",
         "icon": "$(discard)"
       },
       {
         "command": "agentecode.review.revertAll",
-        "title": "Voltar todos os arquivos para antes da conversa",
+        "title": "%command.review.revertAll.title%",
         "category": "AgenteCode"
       },
       {
         "command": "agentecode.review.toggleReviewed",
-        "title": "Mostrar ou ocultar arquivos já revisados",
+        "title": "%command.review.toggleReviewed.title%",
         "category": "AgenteCode"
       },
       {
         "command": "agentecode.review.clearReviewed",
-        "title": "Limpar a lista de revisados",
+        "title": "%command.review.clearReviewed.title%",
         "category": "AgenteCode"
       },
       {
         "command": "agentecode.review.chooseSession",
-        "title": "Escolher a conversa a revisar",
+        "title": "%command.review.chooseSession.title%",
         "category": "AgenteCode",
         "icon": "$(history)"
       },
       {
         "command": "agentecode.review.forSession",
-        "title": "Revisar alterações desta conversa",
+        "title": "%command.review.forSession.title%",
         "category": "AgenteCode"
       },
       {
         "command": "agentecode.review.keepHunkAtCursor",
-        "title": "Manter o trecho alterado pelo agente sob o cursor",
+        "title": "%command.review.keepHunkAtCursor.title%",
         "category": "AgenteCode"
       },
       {
         "command": "agentecode.review.undoHunkAtCursor",
-        "title": "Desfazer o trecho alterado pelo agente sob o cursor",
+        "title": "%command.review.undoHunkAtCursor.title%",
         "category": "AgenteCode"
       },
       {
         "command": "agentecode.review.chooseBase",
-        "title": "Comparar alterações com o estado de antes de um turno",
+        "title": "%command.review.chooseBase.title%",
         "category": "AgenteCode",
         "icon": "$(git-compare)"
       },
       {
         "command": "agentecode.usage.history",
-        "title": "Histórico de uso e custo",
+        "title": "%command.usage.history.title%",
         "category": "AgenteCode",
         "icon": "$(graph)"
       },
       {
         "command": "claudeUsageBar.refresh",
-        "title": "Claude Usage: Atualizar agora"
+        "title": "%command.usageBar.refresh.title%"
       },
       {
         "command": "claudeUsageBar.toggle",
-        "title": "Claude Usage: Mostrar/ocultar barra"
+        "title": "%command.usageBar.toggle.title%"
       },
       {
         "command": "claudeUsageBar.openPanel",
-        "title": "Claude Usage: Abrir/fechar painel de uso"
+        "title": "%command.usageBar.openPanel.title%"
       },
       {
         "command": "claudeUsageBar.enableDirect",
-        "title": "Claude Usage: Ativar limites 5h/7d (consulta à API de uso)"
+        "title": "%command.usageBar.enableDirect.title%"
       },
       {
         "command": "agentecode.sync.menu",
-        "title": "Sincronizar configurações com o GitHub...",
+        "title": "%command.sync.menu.title%",
         "category": "AgenteCode",
         "icon": "$(sync)"
       },
       {
         "command": "agentecode.sync.connect",
-        "title": "Sincronização: Conectar e enviar",
+        "title": "%command.sync.connect.title%",
         "category": "AgenteCode",
         "icon": "$(cloud-upload)"
       },
       {
         "command": "agentecode.sync.upload",
-        "title": "Sincronização: Enviar agora",
+        "title": "%command.sync.upload.title%",
         "category": "AgenteCode",
         "icon": "$(cloud-upload)"
       },
       {
         "command": "agentecode.sync.download",
-        "title": "Sincronização: Baixar do GitHub",
+        "title": "%command.sync.download.title%",
         "category": "AgenteCode",
         "icon": "$(cloud-download)"
       },
       {
         "command": "agentecode.sync.copyGistUrl",
-        "title": "Sincronização: Copiar URL do Gist",
+        "title": "%command.sync.copyGistUrl.title%",
         "category": "AgenteCode",
         "icon": "$(copy)"
       },
       {
         "command": "agentecode.sync.openGist",
-        "title": "Sincronização: Abrir Gist no navegador",
+        "title": "%command.sync.openGist.title%",
         "category": "AgenteCode",
         "icon": "$(globe)"
       },
       {
         "command": "agentecode.sync.toggleAuto",
-        "title": "Sincronização: Alternar envio automático",
+        "title": "%command.sync.toggleAuto.title%",
         "category": "AgenteCode"
       },
       {
         "command": "agentecode.sync.undoLast",
-        "title": "Sincronização: Desfazer última sincronização",
+        "title": "%command.sync.undoLast.title%",
         "category": "AgenteCode",
         "icon": "$(discard)"
       },
       {
         "command": "agentecode.sync.disconnect",
-        "title": "Sincronização: Desconectar",
+        "title": "%command.sync.disconnect.title%",
         "category": "AgenteCode"
       },
       {
         "command": "agentecode.sync.guide",
-        "title": "Sincronização: Ver guia",
+        "title": "%command.sync.guide.title%",
         "category": "AgenteCode",
         "icon": "$(book)"
       }
@@ -251,16 +251,31 @@
     "configuration": {
       "title": "AgenteCode",
       "properties": {
+        "agentecode.language": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "en",
+            "pt-BR"
+          ],
+          "default": "auto",
+          "enumDescriptions": [
+            "%config.language.auto%",
+            "%config.language.en%",
+            "%config.language.pt-BR%"
+          ],
+          "description": "%config.language.description%"
+        },
         "agentecode.export.includeToolResults": {
           "type": "boolean",
           "default": true,
-          "description": "Inclui, de forma resumida, a saída das ferramentas (comandos, leitura de arquivos) na exportação da sessão para Markdown."
+          "description": "%config.export.includeToolResults.description%"
         },
         "agentecode.export.maxToolResultChars": {
           "type": "number",
           "default": 1500,
           "minimum": 0,
-          "description": "Tamanho máximo, em caracteres, de cada saída de ferramenta incluída na exportação."
+          "description": "%config.export.maxToolResultChars.description%"
         },
         "agentecode.sessions.resumeLocation": {
           "type": "string",
@@ -270,136 +285,136 @@
           ],
           "default": "sidebar",
           "enumDescriptions": [
-            "No Claude Code do painel lateral direito (integrado).",
-            "Em uma nova aba do editor."
+            "%config.sessions.resumeLocation.sidebar%",
+            "%config.sessions.resumeLocation.editor%"
           ],
-          "description": "Onde o botão Retomar do painel de sessões abre a conversa."
+          "description": "%config.sessions.resumeLocation.description%"
         },
         "agentecode.releaseNotes.show": {
           "type": "boolean",
           "default": true,
-          "description": "Abre as novidades na primeira vez que o AgenteCode inicia depois de uma atualização."
+          "description": "%config.releaseNotes.show.description%"
         },
         "claudeUsageBar.contextWindow": {
           "type": "number",
           "default": 0,
-          "description": "Janela de contexto em tokens. 0 = automático pelo modelo (1M para a família 5, 200k para modelos antigos)."
+          "description": "%config.usageBar.contextWindow.description%"
         },
         "claudeUsageBar.showStatusBar": {
           "type": "boolean",
           "default": true,
-          "description": "Mostra os itens na barra de status. Desligue se preferir ver o uso só acima do chat (plugin usage-band) ou só no painel lateral."
+          "description": "%config.usageBar.showStatusBar.description%"
         },
         "claudeUsageBar.refreshSeconds": {
           "type": "number",
           "default": 5,
           "minimum": 1,
-          "description": "Intervalo de atualização, em segundos."
+          "description": "%config.usageBar.refreshSeconds.description%"
         },
         "claudeUsageBar.showCost": {
           "type": "boolean",
           "default": true,
-          "description": "Mostra o custo estimado da sessão (calculado pela tabela de preços da API)."
+          "description": "%config.usageBar.showCost.description%"
         },
         "claudeUsageBar.showTurn": {
           "type": "boolean",
           "default": true,
-          "description": "Mostra a duração do último turno."
+          "description": "%config.usageBar.showTurn.description%"
         },
         "claudeUsageBar.showSessionTime": {
           "type": "boolean",
           "default": true,
-          "description": "Mostra o tempo desde o início da sessão."
+          "description": "%config.usageBar.showSessionTime.description%"
         },
         "claudeUsageBar.showLimits": {
           "type": "boolean",
           "default": true,
-          "description": "Mostra os limites de 5h e 7d na barra."
+          "description": "%config.usageBar.showLimits.description%"
         },
         "claudeUsageBar.limitsStaleMinutes": {
           "type": "number",
           "default": 30,
           "minimum": 1,
-          "description": "Idade máxima, em minutos, da leitura dos limites; acima disso eles deixam de ser exibidos. Leituras com mais de 10 min mostram a idade."
+          "description": "%config.usageBar.limitsStaleMinutes.description%"
         },
         "claudeUsageBar.limitsSnapshotPath": {
           "type": "string",
           "default": "",
-          "description": "Caminho do usage-snapshot.json da extensão opcional claude-usage-meter. Vazio = ~/.claude-usage-meter/usage-snapshot.json."
+          "description": "%config.usageBar.limitsSnapshotPath.description%"
         },
         "claudeUsageBar.colorSession5h": {
           "type": "string",
           "default": "charts.green",
-          "description": "Cor do limite de 5h na barra e no painel: id de cor do tema (charts.green, acompanha o tema) ou hexadecimal (#7fbbb3). Vazio = cor padrão da barra."
+          "description": "%config.usageBar.colorSession5h.description%"
         },
         "claudeUsageBar.colorWeekly7d": {
           "type": "string",
           "default": "charts.green",
-          "description": "Cor-base do limite de 7d na barra e no painel (até o degradê começar): id de cor do tema (charts.green, acompanha o tema) ou hexadecimal (#7fbbb3). Vazio = cor padrão da barra."
+          "description": "%config.usageBar.colorWeekly7d.description%"
         },
         "claudeUsageBar.refreshLimits": {
           "type": "boolean",
           "default": true,
-          "description": "Se a extensão opcional claude-usage-meter estiver ativa e a consulta direta desligada, pede a ela uma leitura nova quando a atual tem mais de 6 min."
+          "description": "%config.usageBar.refreshLimits.description%"
         },
         "claudeUsageBar.fetchLimitsDirectly": {
           "type": "boolean",
           "default": false,
-          "description": "Obtém os limites 5h/7d consultando https://api.anthropic.com/api/oauth/usage (endpoint não documentado). Lê o token do Claude Code (~/.claude/.credentials.json; no macOS, o Keychain) somente para essa consulta; várias janelas dividem uma única consulta por intervalo. É ativada pelo aviso na primeira execução ou pelo comando \"Claude Usage: Ativar limites 5h/7d\"."
+          "description": "%config.usageBar.fetchLimitsDirectly.description%"
         },
         "claudeUsageBar.directRefreshMinutes": {
           "type": "number",
           "default": 5,
           "minimum": 3,
-          "description": "Intervalo, em minutos, da consulta dos limites quando o Claude está parado (com recuo automático em caso de limitação da API)."
+          "description": "%config.usageBar.directRefreshMinutes.description%"
         },
         "claudeUsageBar.activeRefreshSeconds": {
           "type": "number",
           "default": 60,
           "minimum": 30,
-          "description": "Enquanto o Claude está sendo usado, consulta os limites com este espaçamento mínimo, em segundos (no máximo uma consulta por computador nesse intervalo)."
+          "description": "%config.usageBar.activeRefreshSeconds.description%"
         },
         "claudeUsageBar.colorGradient": {
           "type": "boolean",
           "default": true,
-          "description": "Muda a cor dos limites 5h e 7d e do contexto aos poucos, da cor-base até o vermelho, conforme o uso sobe (veja colorGradientStart, colorGradientAmber e colorGradientRed). Desligado, a cor é fixa e só troca no alerta."
+          "description": "%config.usageBar.colorGradient.description%"
         },
         "claudeUsageBar.colorGradientStart": {
           "type": "number",
           "default": 50,
           "minimum": 0,
           "maximum": 100,
-          "description": "Uso (%) a partir do qual a cor começa a sair da cor-base em direção ao âmbar. O contexto, que não tem cor-base, só começa a colorir no âmbar."
+          "description": "%config.usageBar.colorGradientStart.description%"
         },
         "claudeUsageBar.colorGradientAmber": {
           "type": "number",
           "default": 75,
           "minimum": 0,
           "maximum": 100,
-          "description": "Uso (%) em que a cor chega ao âmbar, a meio caminho do vermelho."
+          "description": "%config.usageBar.colorGradientAmber.description%"
         },
         "claudeUsageBar.colorGradientRed": {
           "type": "number",
           "default": 90,
           "minimum": 0,
           "maximum": 100,
-          "description": "Uso (%) a partir do qual a cor é vermelha e o alerta de fundo da barra é ligado. Precisa ser maior que o âmbar, que precisa ser maior que o início; fora de ordem valem 50, 75 e 90."
+          "description": "%config.usageBar.colorGradientRed.description%"
         },
         "agentecode.sync.auto": {
           "type": "boolean",
           "default": true,
-          "description": "Envia alterações locais automaticamente após alguns segundos de inatividade (somente enquanto conectado)."
+          "description": "%config.sync.auto.description%"
         },
         "agentecode.sync.autoDelaySeconds": {
           "type": "number",
           "default": 30,
           "minimum": 10,
-          "description": "Tempo de espera em segundos após a última alteração antes de disparar o envio automático."
+          "description": "%config.sync.autoDelaySeconds.description%"
         },
         "agentecode.sync.checkOnStartup": {
           "type": "boolean",
           "default": true,
-          "description": "Verifica se há atualizações remotas no Gist ao iniciar o AgenteCode."
+          "description": "%config.sync.checkOnStartup.description%"
         },
         "agentecode.sync.excludedSettings": {
           "type": "array",
@@ -413,22 +428,22 @@
             "git.path",
             "python.defaultInterpreterPath"
           ],
-          "description": "Chaves de configuração que nunca serão enviadas ao Gist (chaves contendo tokens, senhas ou segredos são ignoradas automaticamente)."
+          "description": "%config.sync.excludedSettings.description%"
         },
         "agentecode.sync.syncSnippets": {
           "type": "boolean",
           "default": true,
-          "description": "Inclui trechos de código (snippets) do usuário na sincronização."
+          "description": "%config.sync.syncSnippets.description%"
         },
         "agentecode.sync.syncExtensions": {
           "type": "boolean",
           "default": true,
-          "description": "Inclui a lista de extensões instaladas pelo usuário na sincronização."
+          "description": "%config.sync.syncExtensions.description%"
         },
         "agentecode.review.terminalChanges": {
           "type": "boolean",
           "default": true,
-          "description": "Inclui na revisão os arquivos alterados por comandos de terminal (perl, sed, scripts) e por outras ferramentas, usando o git: o AgenteCode tira uma foto do projeto no começo de cada pedido ao agente e compara no fim. Só funciona em pastas com git."
+          "description": "%config.review.terminalChanges.description%"
         },
         "agentecode.review.panel": {
           "type": "string",
@@ -437,26 +452,26 @@
             "tree"
           ],
           "enumDescriptions": [
-            "Tela própria, com botões Aceitar e Descartar, selos, números coloridos e trechos expansíveis.",
-            "Lista nativa do VS Code (mais simples)."
+            "%config.review.panel.webview%",
+            "%config.review.panel.tree%"
           ],
           "default": "webview",
-          "description": "Como a lista \"Alterações do agente\" é desenhada na barra lateral."
+          "description": "%config.review.panel.description%"
         },
         "agentecode.review.inlineHint": {
           "type": "boolean",
           "default": false,
-          "description": "Mostra também, no fim da primeira linha de cada trecho alterado pelo agente, um rótulo em itálico com os atalhos Alt+Y (manter) e Alt+N (desfazer). Os botões acima do trecho já trazem os atalhos na dica."
+          "description": "%config.review.inlineHint.description%"
         },
         "agentecode.review.codeLens": {
           "type": "boolean",
           "default": true,
-          "description": "Mostra Manter e Desfazer acima de cada trecho que o agente alterou, dentro do arquivo."
+          "description": "%config.review.codeLens.description%"
         },
         "agentecode.sync.syncClaudeConfig": {
           "type": "boolean",
           "default": false,
-          "description": "Inclui na sincronização o CLAUDE.md global e os arquivos de ~/.claude/commands, agents e skills (somente texto; arquivos com chaves ou tokens são pulados)."
+          "description": "%config.sync.syncClaudeConfig.description%"
         }
       }
     },
@@ -464,7 +479,7 @@
       "secondarySidebar": [
         {
           "id": "agentecode-sessions",
-          "title": "Sessões do agente",
+          "title": "%container.sessions.title%",
           "icon": "media/sessions.svg"
         }
       ],
@@ -481,19 +496,19 @@
       "agentecode-sessions": [
         {
           "id": "agentecode.sessions",
-          "name": "Histórico de sessões",
+          "name": "%view.sessions.name%",
           "icon": "media/sessions.svg"
         },
         {
           "type": "webview",
           "id": "agentecode.reviewPanel",
-          "name": "Alterações do agente",
+          "name": "%view.review.name%",
           "icon": "media/sessions.svg",
           "when": "config.agentecode.review.panel != 'tree'"
         },
         {
           "id": "agentecode.review",
-          "name": "Alterações do agente",
+          "name": "%view.review.name%",
           "icon": "media/sessions.svg",
           "when": "config.agentecode.review.panel == 'tree'"
         }
@@ -502,7 +517,7 @@
         {
           "type": "webview",
           "id": "claudeUsageBar.panel",
-          "name": "Uso do Claude",
+          "name": "%view.usagePanel.name%",
           "when": "agentecode.usage.enabled"
         }
       ]
@@ -510,7 +525,7 @@
     "viewsWelcome": [
       {
         "view": "agentecode.sessions",
-        "contents": "Nenhuma sessão do agente encontrada para esta pasta.\nAbra o Claude Code (Ctrl+L) e converse para criar a primeira."
+        "contents": "%welcome.sessions.contents%"
       }
     ],
     "menus": {
@@ -725,9 +740,6 @@
         "mac": "cmd+backspace",
         "when": "focusedView == agentecode.sessions"
       }
-    ],
-    "configurationDefaults": {
-      "claudeCode.preferredLocation": "sidebar"
-    }
+    ]
   }
 }

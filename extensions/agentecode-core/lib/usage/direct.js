@@ -15,6 +15,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { execFile } = require('child_process');
 const core = require('./core');
+const { t } = require('../i18n');
 
 const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
 const LOCK_TTL_MS = 60_000;
@@ -88,7 +89,7 @@ const keychainService = () => {
 const readKeychain = () =>
   new Promise(resolve => {
     execFile('security', ['find-generic-password', '-s', keychainService(), '-w'], { timeout: 10_000, encoding: 'utf8' }, (err, stdout) =>
-      resolve(err ? { error: 'credencial não encontrada no Keychain' } : core.parseCredentials(stdout)),
+      resolve(err ? { error: t('credential not found in the Keychain') } : core.parseCredentials(stdout)),
     );
   });
 
@@ -145,7 +146,7 @@ const poll = async ({ baseMs, minGapMs = 60_000, wantFresh = false, dir = storeD
 
     const cred = await credentials();
     if (cred.error || (cred.expiresAt !== null && cred.expiresAt - EXPIRY_SKEW_MS <= now)) {
-      writeStore(dir, { ...store, nextPollAt: now + 60_000, lastError: cred.error || 'token vencido, aguardando o Claude Code renovar' });
+      writeStore(dir, { ...store, nextPollAt: now + 60_000, lastError: cred.error || t('token expired, waiting for Claude Code to renew it') });
       return false;
     }
 
@@ -162,13 +163,13 @@ const poll = async ({ baseMs, minGapMs = 60_000, wantFresh = false, dir = storeD
         if (parsed) limits = parsed;
         else {
           status = 0;
-          lastError = 'resposta da API sem os limites';
+          lastError = t('API response without the limits');
         }
       } else {
-        lastError = status === 429 ? 'API limitando as consultas (HTTP 429)' : status === 401 || status === 403 ? `token recusado (HTTP ${status})` : `HTTP ${status}`;
+        lastError = status === 429 ? t('API rate-limiting the requests (HTTP 429)') : status === 401 || status === 403 ? t('token rejected (HTTP {0})', status) : `HTTP ${status}`;
       }
     } catch {
-      lastError = 'falha de rede';
+      lastError = t('network failure');
     }
     const failures = status === 200 ? 0 : (store.failures || 0) + 1;
     const done = Date.now();

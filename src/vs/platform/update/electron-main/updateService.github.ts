@@ -8,6 +8,8 @@
 import { spawn } from 'child_process';
 import { mkdir, readdir, rename, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
+import { agenteCodeText, resolveAgenteCodeLanguage } from '../../../base/common/agentecodeLanguage.js';
+import { language as displayLanguage } from '../../../base/common/platform.js';
 import { VSBuffer } from '../../../base/common/buffer.js';
 import { CancellationToken } from '../../../base/common/cancellation.js';
 import { Emitter, Event } from '../../../base/common/event.js';
@@ -41,25 +43,6 @@ const UPDATE_AUTO_DOWNLOAD_ENV = 'AGENTECODE_UPDATE_AUTODOWNLOAD';
 const PROGRESS_INTERVAL = 500;
 const FIRST_CHECK_DELAY = 30 * 1000;
 const CHECK_INTERVAL = 24 * 60 * 60 * 1000;
-
-// allow-any-unicode-next-line
-const ERR_CHECKSUM_FILE = 'O arquivo de verificação (.sha256) da Release está inválido.';
-// allow-any-unicode-next-line
-const ERR_HASH_MISMATCH = 'A verificação de integridade falhou: o arquivo baixado não confere com o SHA-256 da Release.';
-// allow-any-unicode-next-line
-const errServerStatus = (status: number | undefined) => `O servidor respondeu ${status} ao baixar o instalador.`;
-// allow-any-unicode-next-line
-const MSG_CHECK_FAILED = 'Não foi possível verificar atualizações agora. Tente novamente em alguns minutos.';
-// allow-any-unicode-next-line
-const MSG_AUTO_UPDATE_UNAVAILABLE = 'A atualização automática não funcionou.';
-// allow-any-unicode-next-line
-const MSG_DOWNLOAD_FAILED = 'Não foi possível baixar a atualização dentro da IDE.';
-// allow-any-unicode-next-line
-const MSG_NO_INSTALLER = 'O instalador desta versão ainda não está disponível para atualização automática. Você pode baixá-lo pelo site.';
-// allow-any-unicode-next-line
-const BUTTON_OPEN_PAGE = 'Baixar pelo site';
-// allow-any-unicode-next-line
-const BUTTON_CANCEL = 'Cancelar';
 
 /**
  * Serviço de atualização do AgenteCode: consulta a última Release estável no GitHub e, havendo versão
@@ -117,6 +100,20 @@ export class GitHubUpdateService extends Disposable implements IUpdateService {
 	/** Versão instalada, lida do `nameLong` do produto (ex.: "Agente Code IDE v1.0.0"). */
 	private get currentVersion(): string | undefined {
 		return parseVersion(this.productService.nameLong)?.join('.');
+	}
+
+	/** Texto no idioma configurado em `agentecode.language` (com `auto`, o idioma de exibição do VS Code). Avaliado a cada uso. */
+	private text(texts: { en: string; pt: string }): string {
+		const language = resolveAgenteCodeLanguage(this.configurationService.getValue<string>('agentecode.language'), displayLanguage);
+		return agenteCodeText(language, texts);
+	}
+
+	private msgCheckFailed(): string {
+		return this.text({
+			en: 'Could not check for updates right now. Try again in a few minutes.',
+			// allow-any-unicode-next-line
+			pt: 'Não foi possível verificar atualizações agora. Tente novamente em alguns minutos.'
+		});
 	}
 
 	private setState(state: State): void {
@@ -183,7 +180,7 @@ export class GitHubUpdateService extends Disposable implements IUpdateService {
 		} catch (error) {
 			this.logService.error('update#checkForUpdates(): failed to query GitHub', error);
 			// Verificação automática falha em silêncio; só quem clicou em "Check for Updates" recebe um aviso, sem detalhe técnico.
-			this.setState(State.Idle(UpdateType.Setup, explicit ? MSG_CHECK_FAILED : undefined));
+			this.setState(State.Idle(UpdateType.Setup, explicit ? this.msgCheckFailed() : undefined));
 		}
 	}
 
@@ -247,7 +244,12 @@ export class GitHubUpdateService extends Disposable implements IUpdateService {
 		if (!this.canInstallInApp(update)) {
 			if (process.platform === 'win32') {
 				// no Windows o normal é baixar e instalar dentro da IDE; sem instalador na Release, só oferece o site
-				await this.offerReleasePage(update, MSG_NO_INSTALLER);
+				const noInstaller = this.text({
+					en: 'The installer for this version is not yet available for automatic update. You can download it from the website.',
+					// allow-any-unicode-next-line
+					pt: 'O instalador desta versão ainda não está disponível para atualização automática. Você pode baixá-lo pelo site.'
+				});
+				await this.offerReleasePage(update, noInstaller);
 			} else {
 				await this.openReleasePage(update);
 			}
@@ -263,7 +265,12 @@ export class GitHubUpdateService extends Disposable implements IUpdateService {
 			this.logService.error('update#downloadUpdate(): failed', error);
 			this.installerPath = undefined;
 			this.setState(State.AvailableForDownload(update));
-			await this.offerReleasePage(update, `${MSG_DOWNLOAD_FAILED}\n\n${error instanceof Error ? error.message : String(error)}`);
+			const failed = this.text({
+				en: 'Could not download the update inside the IDE.',
+				// allow-any-unicode-next-line
+				pt: 'Não foi possível baixar a atualização dentro da IDE.'
+			});
+			await this.offerReleasePage(update, `${failed}\n\n${error instanceof Error ? error.message : String(error)}`);
 		}
 	}
 
@@ -271,9 +278,16 @@ export class GitHubUpdateService extends Disposable implements IUpdateService {
 	private async offerReleasePage(update: IGitHubUpdate, detail: string): Promise<void> {
 		const { response } = await this.dialogMainService.showMessageBox({
 			type: 'warning',
-			message: MSG_AUTO_UPDATE_UNAVAILABLE,
+			message: this.text({
+				en: 'Automatic update did not work.',
+				// allow-any-unicode-next-line
+				pt: 'A atualização automática não funcionou.'
+			}),
 			detail,
-			buttons: [BUTTON_OPEN_PAGE, BUTTON_CANCEL],
+			buttons: [
+				this.text({ en: 'Download from the Website', pt: 'Baixar pelo site' }),
+				this.text({ en: 'Cancel', pt: 'Cancelar' })
+			],
 			defaultId: 0,
 			cancelId: 1,
 		});
@@ -298,7 +312,11 @@ export class GitHubUpdateService extends Disposable implements IUpdateService {
 	private async downloadInstaller(update: IGitHubUpdate, explicit: boolean, startTime: number): Promise<string> {
 		const expectedHash = parseChecksum(await asTextOrError(await this.requestService.request({ url: update.sha256Url!, callSite: 'updateService.github.checksum' }, CancellationToken.None)));
 		if (!expectedHash) {
-			throw new Error(ERR_CHECKSUM_FILE);
+			throw new Error(this.text({
+				en: 'The verification file (.sha256) of the Release is invalid.',
+				// allow-any-unicode-next-line
+				pt: 'O arquivo de verificação (.sha256) da Release está inválido.'
+			}));
 		}
 
 		const dir = path.join(tmpdir(), 'AgenteCode-update');
@@ -311,7 +329,12 @@ export class GitHubUpdateService extends Disposable implements IUpdateService {
 
 		const context = await this.requestService.request({ url: update.url!, callSite: 'updateService.github.download' }, CancellationToken.None);
 		if (context.res.statusCode !== 200) {
-			throw new Error(errServerStatus(context.res.statusCode));
+			const status = context.res.statusCode;
+			throw new Error(this.text({
+				en: `The server responded ${status} while downloading the installer.`,
+				// allow-any-unicode-next-line
+				pt: `O servidor respondeu ${status} ao baixar o instalador.`
+			}));
 		}
 		const lengthHeader = context.res.headers['content-length'];
 		const totalBytes = typeof lengthHeader === 'string' ? parseInt(lengthHeader, 10) : undefined;
@@ -339,9 +362,14 @@ export class GitHubUpdateService extends Disposable implements IUpdateService {
 		try {
 			await this.fileService.writeFile(URI.file(downloadPath), progressStream);
 			await checksum(downloadPath, expectedHash).catch(error => {
-				throw new Error(error instanceof Error && error.message === 'Hash mismatch'
-					? ERR_HASH_MISMATCH
-					: String(error));
+				if (!(error instanceof Error && error.message === 'Hash mismatch')) {
+					throw new Error(String(error));
+				}
+				throw new Error(this.text({
+					en: 'Integrity check failed: the downloaded file does not match the Release SHA-256.',
+					// allow-any-unicode-next-line
+					pt: 'A verificação de integridade falhou: o arquivo baixado não confere com o SHA-256 da Release.'
+				}));
 			});
 			await rename(downloadPath, installerPath);
 		} catch (error) {

@@ -6,10 +6,12 @@
 // allow-any-unicode-comment-file
 
 import { mainWindow } from '../../../../base/browser/window.js';
+import { agenteCodeText, resolveAgenteCodeLanguage } from '../../../../base/common/agentecodeLanguage.js';
+import { language as displayLanguage } from '../../../../base/common/platform.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { Codicon } from '../../../../base/common/codicons.js';
-import { localize2 } from '../../../../nls.js';
+import { localize, localize2 } from '../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ConfigurationTarget, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
@@ -38,20 +40,42 @@ const COMMAND_SAVE_AS = 'agentecode.layout.saveAs';
 const COMMAND_RESTORE = 'agentecode.layout.restore';
 const COMMAND_RESTORE_LAST = 'agentecode.layout.restoreLast';
 
-// allow-any-unicode-next-line
-const TEXT_NO_LAYOUT = 'Ainda não há layout salvo. Use "Salvar layout" primeiro.';
-// allow-any-unicode-next-line
-const TEXT_LAST_SAVED = '(último salvo)';
-// allow-any-unicode-next-line
-const TEXT_PICK = 'Escolha o layout para restaurar';
-// allow-any-unicode-next-line
-const TEXT_NAME_PROMPT = 'Nome do layout (vazio usa a resolução da tela)';
-// allow-any-unicode-next-line
-const textSaved = (name: string) => `Layout "${name}" salvo.`;
-// allow-any-unicode-next-line
-const textRestored = (name: string) => `Layout "${name}" restaurado.`;
-// allow-any-unicode-next-line
-const textRestoredAuto = (name: string) => `Layout "${name}" aplicado para esta tela.`;
+const LANGUAGE_KEY = 'agentecode.language';
+
+/** Texto no idioma configurado em `agentecode.language` (com `auto`, o idioma de exibição do VS Code). Avaliado a cada uso. */
+function layoutText(configurationService: IConfigurationService, texts: { en: string; pt: string }): string {
+	const language = resolveAgenteCodeLanguage(configurationService.getValue<string>(LANGUAGE_KEY), displayLanguage);
+	return agenteCodeText(language, texts);
+}
+
+function textNoLayout(configurationService: IConfigurationService): string {
+	return layoutText(configurationService, {
+		en: 'There is no saved layout yet. Use "Save Current Layout" first.',
+		// allow-any-unicode-next-line
+		pt: 'Ainda não há layout salvo. Use "Salvar layout" primeiro.'
+	});
+}
+
+function textSaved(configurationService: IConfigurationService, name: string): string {
+	return layoutText(configurationService, {
+		en: `Layout "${name}" saved.`,
+		pt: `Layout "${name}" salvo.`
+	});
+}
+
+function textRestored(configurationService: IConfigurationService, name: string): string {
+	return layoutText(configurationService, {
+		en: `Layout "${name}" restored.`,
+		pt: `Layout "${name}" restaurado.`
+	});
+}
+
+function textRestoredAuto(configurationService: IConfigurationService, name: string): string {
+	return layoutText(configurationService, {
+		en: `Layout "${name}" applied for this screen.`,
+		pt: `Layout "${name}" aplicado para esta tela.`
+	});
+}
 
 interface IPartLayout {
 	readonly visible: boolean;
@@ -142,7 +166,7 @@ async function saveLayout({ configurationService, layoutService, notificationSer
 	const layouts = { ...readLayouts(configurationService), [name]: captureLayout(layoutService) };
 	await configurationService.updateValue(SAVED_KEY, layouts, ConfigurationTarget.USER);
 	await configurationService.updateValue(LAST_KEY, name, ConfigurationTarget.USER);
-	notificationService.status(textSaved(name), { hideAfter: 4000 });
+	notificationService.status(textSaved(configurationService, name), { hideAfter: 4000 });
 }
 
 function restoreLayout({ configurationService, layoutService, notificationService }: ILayoutServices, name: string): boolean {
@@ -151,7 +175,7 @@ function restoreLayout({ configurationService, layoutService, notificationServic
 		return false;
 	}
 	applyLayout(layoutService, layout);
-	notificationService.status(textRestored(name), { hideAfter: 4000 });
+	notificationService.status(textRestored(configurationService, name), { hideAfter: 4000 });
 	return true;
 }
 
@@ -159,7 +183,7 @@ registerAction2(class SaveLayoutAction extends Action2 {
 	constructor() {
 		super({
 			id: COMMAND_SAVE,
-			title: localize2('agentecode.layout.save', "Salvar Layout Atual"),
+			title: localize2('agentecode.layout.save', "Save Current Layout"),
 			category: Categories.View,
 			f1: true,
 			menu: { id: MenuId.GlobalActivity, group: '5_agentecode_layout', order: 1 },
@@ -177,7 +201,7 @@ registerAction2(class SaveLayoutAsAction extends Action2 {
 	constructor() {
 		super({
 			id: COMMAND_SAVE_AS,
-			title: localize2('agentecode.layout.saveAs', "Salvar Layout Com Nome..."),
+			title: localize2('agentecode.layout.saveAs', "Save Layout As..."),
 			category: Categories.View,
 			f1: true,
 			menu: { id: MenuId.GlobalActivity, group: '5_agentecode_layout', order: 2 }
@@ -186,7 +210,8 @@ registerAction2(class SaveLayoutAsAction extends Action2 {
 
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const services = layoutServices(accessor);
-		const typed = await accessor.get(IQuickInputService).input({ prompt: TEXT_NAME_PROMPT, placeHolder: nowName() });
+		// allow-any-unicode-next-line
+		const typed = await accessor.get(IQuickInputService).input({ prompt: layoutText(services.configurationService, { en: 'Layout name (empty uses the screen resolution)', pt: 'Nome do layout (vazio usa a resolução da tela)' }), placeHolder: nowName() });
 		if (typed === undefined) {
 			return;
 		}
@@ -198,7 +223,7 @@ registerAction2(class RestoreLayoutAction extends Action2 {
 	constructor() {
 		super({
 			id: COMMAND_RESTORE,
-			title: localize2('agentecode.layout.restore', "Restaurar Layout..."),
+			title: localize2('agentecode.layout.restore', "Restore Layout..."),
 			category: Categories.View,
 			f1: true,
 			menu: { id: MenuId.GlobalActivity, group: '5_agentecode_layout', order: 4 },
@@ -213,14 +238,15 @@ registerAction2(class RestoreLayoutAction extends Action2 {
 		const layouts = readLayouts(configurationService);
 		const names = Object.keys(layouts);
 		if (!names.length) {
-			services.notificationService.info(TEXT_NO_LAYOUT);
+			services.notificationService.info(textNoLayout(configurationService));
 			return;
 		}
 		const last = configurationService.getValue<string>(LAST_KEY);
 		const items: IQuickPickItem[] = names
 			.sort((a, b) => layouts[b].savedAt - layouts[a].savedAt)
-			.map(name => ({ label: name, description: name === last ? TEXT_LAST_SAVED : undefined, detail: `${layouts[name].screen} · ${new Date(layouts[name].savedAt).toLocaleString()}` }));
-		const picked = await quickInputService.pick(items, { placeHolder: TEXT_PICK });
+			// allow-any-unicode-next-line
+			.map(name => ({ label: name, description: name === last ? layoutText(configurationService, { en: '(last saved)', pt: '(último salvo)' }) : undefined, detail: `${layouts[name].screen} · ${new Date(layouts[name].savedAt).toLocaleString()}` }));
+		const picked = await quickInputService.pick(items, { placeHolder: layoutText(configurationService, { en: 'Choose the layout to restore', pt: 'Escolha o layout para restaurar' }) });
 		if (picked) {
 			restoreLayout(services, picked.label);
 		}
@@ -231,8 +257,7 @@ registerAction2(class RestoreLastLayoutAction extends Action2 {
 	constructor() {
 		super({
 			id: COMMAND_RESTORE_LAST,
-			// allow-any-unicode-next-line
-			title: localize2('agentecode.layout.restoreLast', "Restaurar Último Layout Salvo"),
+			title: localize2('agentecode.layout.restoreLast', "Restore Last Saved Layout"),
 			category: Categories.View,
 			f1: true,
 			menu: { id: MenuId.GlobalActivity, group: '5_agentecode_layout', order: 3 },
@@ -244,7 +269,7 @@ registerAction2(class RestoreLastLayoutAction extends Action2 {
 		const services = layoutServices(accessor);
 		const last = services.configurationService.getValue<string>(LAST_KEY);
 		if (!last || !restoreLayout(services, last)) {
-			services.notificationService.info(TEXT_NO_LAYOUT);
+			services.notificationService.info(textNoLayout(services.configurationService));
 		}
 	}
 });
@@ -273,9 +298,8 @@ class AgenteCodeLayoutContribution extends Disposable implements IWorkbenchContr
 		this.saveEntry.value = statusbarService.addEntry({
 			name: 'AgenteCode Layout',
 			text: '$(save)',
-			// allow-any-unicode-next-line
-			tooltip: 'Salvar layout atual (Ctrl+Alt+Shift+S)',
-			ariaLabel: 'Salvar layout atual',
+			tooltip: layoutText(configurationService, { en: 'Save current layout (Ctrl+Alt+Shift+S)', pt: 'Salvar layout atual (Ctrl+Alt+Shift+S)' }),
+			ariaLabel: layoutText(configurationService, { en: 'Save current layout', pt: 'Salvar layout atual' }),
 			command: COMMAND_SAVE
 		}, 'status.agentecode.layout.save', StatusbarAlignment.RIGHT, 100);
 
@@ -283,9 +307,9 @@ class AgenteCodeLayoutContribution extends Disposable implements IWorkbenchContr
 			name: 'AgenteCode Layout',
 			text: '$(layout)',
 			// allow-any-unicode-next-line
-			tooltip: 'Restaurar o último layout salvo (Ctrl+Alt+Shift+R)',
+			tooltip: layoutText(configurationService, { en: 'Restore the last saved layout (Ctrl+Alt+Shift+R)', pt: 'Restaurar o último layout salvo (Ctrl+Alt+Shift+R)' }),
 			// allow-any-unicode-next-line
-			ariaLabel: 'Restaurar o último layout salvo',
+			ariaLabel: layoutText(configurationService, { en: 'Restore the last saved layout', pt: 'Restaurar o último layout salvo' }),
 			command: COMMAND_RESTORE_LAST
 		}, 'status.agentecode.layout.restore', StatusbarAlignment.RIGHT, 99);
 
@@ -312,7 +336,7 @@ class AgenteCodeLayoutContribution extends Disposable implements IWorkbenchContr
 		const layout = readLayouts(this.configurationService)[current];
 		if (layout) {
 			applyLayout(this.layoutService, layout);
-			this.notificationService.status(textRestoredAuto(current), { hideAfter: 4000 });
+			this.notificationService.status(textRestoredAuto(this.configurationService, current), { hideAfter: 4000 });
 		}
 	}
 }
@@ -328,20 +352,17 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 		[SAVED_KEY]: {
 			type: 'object',
 			default: {},
-			// allow-any-unicode-next-line
-			description: 'Layouts salvos (larguras e alturas das barras e do painel). Gerenciado pelos comandos "Salvar Layout"; vai junto no sincronismo com o Gist.'
+			description: localize('agentecode.layout.saved', "Saved layouts (widths and heights of the side bars and the panel). Managed by the \"Save Current Layout\" commands; synced along with the Gist.")
 		},
 		[LAST_KEY]: {
 			type: 'string',
 			default: '',
-			// allow-any-unicode-next-line
-			description: 'Nome do último layout salvo, usado pelo "Restaurar Último Layout Salvo".'
+			description: localize('agentecode.layout.last', "Name of the last saved layout, used by \"Restore Last Saved Layout\".")
 		},
 		[AUTO_RESTORE_KEY]: {
 			type: 'boolean',
 			default: true,
-			// allow-any-unicode-next-line
-			description: 'Ao abrir a IDE ou mover a janela para outro monitor, aplica o layout salvo para a resolução daquela tela.'
+			description: localize('agentecode.layout.autoRestore', "When opening the IDE or moving the window to another monitor, applies the layout saved for that screen's resolution.")
 		}
 	}
 });
