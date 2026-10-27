@@ -425,6 +425,11 @@
           "default": true,
           "description": "Inclui a lista de extensões instaladas pelo usuário na sincronização."
         },
+        "agentecode.review.terminalChanges": {
+          "type": "boolean",
+          "default": true,
+          "description": "Inclui na revisão os arquivos alterados por comandos de terminal (perl, sed, scripts) e por outras ferramentas, usando o git: o AgenteCode tira uma foto do projeto no começo de cada pedido ao agente e compara no fim. Só funciona em pastas com git."
+        },
         "agentecode.review.panel": {
           "type": "string",
           "enum": [

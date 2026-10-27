@@ -107,6 +107,13 @@ function render(state) {
 		if (item.dir) { row.appendChild(el('span', 'dir', item.dir)); }
 		if (item.status === 'added') { row.appendChild(el('span', 'tag new', 'NOVO')); }
 		if (item.status === 'deleted') { row.appendChild(el('span', 'tag gone', 'EXCLU\\u00cdDO')); }
+		if (item.source === 'terminal') {
+			const origin = el('span', 'tag term', item.approx ? 'TERMINAL ~' : 'TERMINAL');
+			origin.title = item.approx
+				? 'Alterado fora do registro do agente (terminal ou outra ferramenta). Compara\\u00e7\\u00e3o aproximada, com o \\u00faltimo commit anterior \\u00e0 conversa.'
+				: 'Alterado por comando de terminal ou outra ferramenta (fora do registro do agente).';
+			row.appendChild(origin);
+		}
 		row.appendChild(el('span', 'spacer'));
 		row.appendChild(counts(item.added, item.removed));
 		const actions = el('span', 'actions');
@@ -135,7 +142,7 @@ function render(state) {
 		}
 	}
 	root.appendChild(list);
-	root.appendChild(el('div', 'note', 'O que foi feito por comandos de terminal n\\u00e3o aparece aqui.'));
+	root.appendChild(el('div', 'note', state.terminalNote || ''));
 }
 
 window.addEventListener('message', event => {
@@ -180,6 +187,7 @@ button{font:inherit;cursor:pointer;color:inherit;background:transparent;border:0
 .tag{font-size:10px;font-weight:700;border-radius:3px;padding:0 5px;line-height:1.5}
 .tag.new{background:rgba(46,160,67,.25);color:#56d364}
 .tag.gone{background:rgba(248,81,73,.25);color:#ff7b72}
+.tag.term{background:rgba(210,153,34,.25);color:#e3b341}
 .spacer{flex:1}
 .actions{display:none;gap:2px}
 .row:hover .actions,.hunk:hover .actions{display:inline-flex}

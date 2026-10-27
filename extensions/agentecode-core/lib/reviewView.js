@@ -16,6 +16,10 @@ const { isInsideAny, BACKUP_NAME } = require('./checkpoints');
 const { listSessions, fileHistoryDir } = require('./sessionStore');
 const { applyChange } = require('./rewindPlan');
 const { rewindToCheckpoint, undoLastRewind, saveUndoPoint } = require('./rewind');
+const { claudeConfigDir, projectSlug } = require('./sessionMarkdown');
+const gs = require('./gitSnapshot');
+const { TurnWatcher } = require('./turnWatcher');
+const { computeTerminalChanges } = require('./terminalChanges');
 
 const VIEW_ID = 'agentecode.review';
 const PANEL_ID = 'agentecode.reviewPanel';
@@ -50,10 +54,18 @@ const keyOf = file => (process.platform === 'win32' ? path.normalize(file).toLow
 
 /** Mostra o conteudo da copia (checkpoint) com o nome do arquivo original, para ter realce de sintaxe no diff. */
 class BackupContentProvider {
+	/** @param {string} beforeDir pasta com o antes dos arquivos alterados por terminal */
+	constructor(beforeDir) {
+		this.beforeDir = beforeDir;
+	}
+
 	provideTextDocumentContent(uri) {
-		const { session, backup } = JSON.parse(uri.query);
+		const { session, backup, external } = JSON.parse(uri.query);
 		if (backup === EMPTY) {
 			return '';
+		}
+		if (external) {
+			return /^[0-9a-f]{40}$/.test(backup) ? fs.promises.readFile(path.join(this.beforeDir, backup), 'utf8').catch(() => '') : '';
 		}
 		if (!BACKUP_NAME.test(backup) || !/^[0-9a-f-]+$/i.test(session)) {
 			return '';
@@ -62,12 +74,14 @@ class BackupContentProvider {
 	}
 }
 
-function backupUri(sessionId, file, backup) {
-	return vscode.Uri.from({ scheme: SCHEME, path: `/${path.basename(file)}`, query: JSON.stringify({ session: sessionId, backup: backup ? path.basename(backup) : EMPTY }) });
+function backupUri(sessionId, file, backup, external = false) {
+	return vscode.Uri.from({ scheme: SCHEME, path: `/${path.basename(file)}`, query: JSON.stringify({ session: sessionId, backup: backup ? path.basename(backup) : EMPTY, external }) });
 }
 
 /** @param {vscode.ExtensionContext} context */
 function registerReviewView(context) {
+	/** Antes dos arquivos alterados por terminal, tirado das fotos do git (para o diff e o Desfazer). */
+	const beforeDir = path.join(context.globalStorageUri.fsPath, 'terminal-before');
 	/** @type {{ file: string, id: string, cwd?: string, title?: string } | undefined} */
 	let session;
 	let review;
@@ -100,7 +114,7 @@ function registerReviewView(context) {
 				const root = roots().find(r => isInsideAny(element.file, [r]));
 				const relDir = root ? path.dirname(path.relative(root, element.file)) : path.dirname(element.file);
 				const counts = element.added === null ? '' : ` +${element.added} −${element.removed}`;
-				item.description = `${relDir === '.' ? '' : `${relDir}  `}${info.text}${counts}`;
+				item.description = `${relDir === '.' ? '' : `${relDir}  `}${info.text}${counts}${element.source === 'terminal' ? ' · terminal' : ''}`;
 				item.iconPath = new vscode.ThemeIcon(info.icon, new vscode.ThemeColor(info.color));
 				item.contextValue = 'reviewFile';
 				item.tooltip = `${element.file}\n${info.text}${counts}`;
@@ -118,7 +132,7 @@ function registerReviewView(context) {
 	scm.quickDiffProvider = {
 		provideOriginalResource: uri => {
 			const item = uri.scheme === 'file' ? pendingByKey.get(keyOf(uri.fsPath)) : undefined;
-			return item && item.status !== 'deleted' && session ? backupUri(session.id, item.file, item.backup) : undefined;
+			return item && item.status !== 'deleted' && session ? backupUri(session.id, item.file, item.backup, item.source === 'terminal') : undefined;
 		}
 	};
 	const scmGroup = scm.createResourceGroup('changes', 'Alterações do agente');
@@ -196,7 +210,7 @@ function registerReviewView(context) {
 		view, treeEmitter, decorationEmitter, lensEmitter, scm, scmGroup,
 		vscode.window.registerFileDecorationProvider(decorations),
 		vscode.languages.registerCodeLensProvider({ scheme: 'file' }, lensProvider),
-		vscode.workspace.registerTextDocumentContentProvider(SCHEME, new BackupContentProvider())
+		vscode.workspace.registerTextDocumentContentProvider(SCHEME, new BackupContentProvider(beforeDir))
 	);
 
 	// --- Rotulo em italico e na cor do tema no fim da primeira linha de cada trecho (como no Antigravity) ---
@@ -284,6 +298,8 @@ function registerReviewView(context) {
 				added: item.added,
 				removed: item.removed,
 				badge: languageBadge(item.file),
+				source: item.source,
+				approx: Boolean(item.approx),
 				reviewed: !pendingKeys.has(key),
 				expanded: expanded.has(key)
 			};
@@ -300,7 +316,7 @@ function registerReviewView(context) {
 		let emptyText = '';
 		if (!session) {
 			emptyText = 'Nenhuma conversa do agente encontrada para esta pasta.';
-		} else if (!review || !review.firstMessageId) {
+		} else if (!review || (!review.firstMessageId && !review.all.length)) {
 			emptyText = 'Esta conversa ainda não alterou arquivos.';
 		} else if (!rows.length) {
 			emptyText = hidden ? `Tudo revisado (${hidden}).` : 'Nenhuma diferença: os arquivos estão como antes.';
@@ -312,7 +328,8 @@ function registerReviewView(context) {
 			hiddenReviewed: hidden,
 			showReviewed,
 			items: rows,
-			emptyText
+			emptyText,
+			terminalNote: review ? terminalNote(review.terminalMode) : ''
 		};
 	}
 
@@ -412,8 +429,170 @@ function registerReviewView(context) {
 		}
 	}, { webviewOptions: { retainContextWhenHidden: true } }));
 
+	// --- Mudancas feitas por terminal: fotos do projeto no comeco de cada pedido ---
+	const snapshotsFile = path.join(context.globalStorageUri.fsPath, 'terminal-snapshots.json');
+	const MAX_SNAP_SESSIONS = 40;
+	const MAX_SNAPS_PER_SESSION = 300;
+	/** @type {{ sessions: Record<string, { root: string, snaps: { uuid: string, ts: number, tree: string }[] }> }} */
+	let snapshotDb = { sessions: {} };
+	try {
+		snapshotDb = JSON.parse(fs.readFileSync(snapshotsFile, 'utf8'));
+	} catch {
+		// primeira vez
+	}
+	if (!snapshotDb.sessions) {
+		snapshotDb.sessions = {};
+	}
+	let saveTimer;
+	const saveSnapshots = () => {
+		clearTimeout(saveTimer);
+		saveTimer = setTimeout(async () => {
+			const ids = Object.keys(snapshotDb.sessions);
+			if (ids.length > MAX_SNAP_SESSIONS) {
+				const last = id => snapshotDb.sessions[id].snaps.at(-1)?.ts ?? 0;
+				for (const id of ids.sort((a, b) => last(a) - last(b)).slice(0, ids.length - MAX_SNAP_SESSIONS)) {
+					delete snapshotDb.sessions[id];
+				}
+			}
+			try {
+				await fs.promises.mkdir(path.dirname(snapshotsFile), { recursive: true });
+				await fs.promises.writeFile(`${snapshotsFile}.tmp`, JSON.stringify(snapshotDb), 'utf8');
+				await fs.promises.rename(`${snapshotsFile}.tmp`, snapshotsFile);
+			} catch {
+				// as fotos sao um reforco: sem salvar, o modo aproximado cobre
+			}
+		}, 500);
+	};
+	const terminalEnabled = () => vscode.workspace.getConfiguration('agentecode.review').get('terminalChanges', true);
+
+	let snapshotQueue = Promise.resolve();
+	const takeSnapshot = (root, sessionId, prompt) => {
+		snapshotQueue = snapshotQueue.then(async () => {
+			try {
+				const tree = await gs.snapshotTree(root);
+				const entry = snapshotDb.sessions[sessionId] ?? (snapshotDb.sessions[sessionId] = { root, snaps: [] });
+				entry.root = root;
+				entry.snaps.push({ uuid: prompt.uuid, ts: Date.now(), tree });
+				if (entry.snaps.length > MAX_SNAPS_PER_SESSION) {
+					entry.snaps.splice(0, entry.snaps.length - MAX_SNAPS_PER_SESSION);
+				}
+				saveSnapshots();
+			} catch (error) {
+				console.warn('AgenteCode: não foi possível tirar a foto do projeto', error && error.message);
+			}
+		});
+		return snapshotQueue;
+	};
+
+	/** @type {TurnWatcher[]} */
+	const turnWatchers = [];
+	async function startTurnWatchers() {
+		if (!terminalEnabled()) {
+			return;
+		}
+		const projectsRoot = path.join(claudeConfigDir(), 'projects');
+		let dirs = [];
+		try {
+			dirs = await fs.promises.readdir(projectsRoot);
+		} catch {
+			// ainda sem conversas
+		}
+		for (const folder of (vscode.workspace.workspaceFolders ?? []).map(f => f.uri.fsPath)) {
+			const root = await gs.repoRoot(folder);
+			if (!root) {
+				continue;
+			}
+			const slug = projectSlug(folder);
+			const dir = path.join(projectsRoot, dirs.find(d => d.toLowerCase() === slug.toLowerCase()) ?? slug);
+			const watcher = new TurnWatcher(dir, (sessionId, prompt) => {
+				if (terminalEnabled()) {
+					void takeSnapshot(root, sessionId, prompt);
+				}
+			});
+			turnWatchers.push(watcher);
+			await watcher.start();
+		}
+	}
+	void startTurnWatchers();
+	context.subscriptions.push({ dispose: () => { turnWatchers.forEach(w => w.dispose()); clearTimeout(saveTimer); } });
+
+	/** Horario da conversa (primeira mensagem ate a ultima gravacao), para o modo aproximado. */
+	async function sessionWindow(target) {
+		let from = Date.now();
+		let to = Date.now();
+		try {
+			const stat = await fs.promises.stat(target.file);
+			to = stat.mtimeMs;
+			from = stat.birthtimeMs || stat.mtimeMs;
+			const handle = await fs.promises.open(target.file, 'r');
+			try {
+				const buffer = Buffer.alloc(Math.min(65536, stat.size));
+				await handle.read(buffer, 0, buffer.length, 0);
+				for (const line of buffer.toString('utf8').split('\n')) {
+					const time = line ? Date.parse((() => { try { return JSON.parse(line).timestamp; } catch { return undefined; } })()) : NaN;
+					if (!Number.isNaN(time)) {
+						from = time;
+						break;
+					}
+				}
+			} finally {
+				await handle.close();
+			}
+		} catch {
+			// usa o padrao
+		}
+		return { from, to };
+	}
+
+	/** @type {{ key: string, at: number, result: any } | undefined} */
+	let terminalCache;
+	const TERMINAL_CACHE_MS = 30000;
+	const repoRootCache = new Map();
+
+	/**
+	 * Arquivos alterados fora do registro do Claude Code (terminal e outras ferramentas), sem repetir os que o registro ja tem.
+	 * @param {any[]} internalItems
+	 * @param {boolean} useCache
+	 */
+	async function terminalItems(internalItems, useCache) {
+		const none = { mode: 'none', truncated: false, items: [] };
+		const cwd = session.cwd || roots()[0];
+		if (!cwd) {
+			return none;
+		}
+		let root = repoRootCache.get(cwd);
+		if (root === undefined) {
+			root = await gs.repoRoot(cwd);
+			repoRootCache.set(cwd, root);
+		}
+		if (!root) {
+			return none;
+		}
+		const entry = snapshotDb.sessions[session.id];
+		const snap = entry ? (base ? entry.snaps.find(s => s.uuid === base.messageId) : entry.snaps[0]) : undefined;
+		if (base && !snap) {
+			return none; // sem foto deste pedido, so o registro do agente vale
+		}
+		const key = `${session.id}|${snap ? snap.tree : 'aprox'}`;
+		let result;
+		if (useCache && terminalCache && terminalCache.key === key && Date.now() - terminalCache.at < TERMINAL_CACHE_MS) {
+			result = terminalCache.result;
+		} else {
+			result = await computeTerminalChanges({ repoRoot: root, baseTree: snap?.tree, beforeDir, window: await sessionWindow(session) });
+			terminalCache = { key, at: Date.now(), result };
+		}
+		const known = new Set(internalItems.map(i => keyOf(i.file)));
+		return { ...result, items: result.items.filter(i => !known.has(keyOf(i.file)) && isInsideAny(i.file, roots())) };
+	}
+
+	const terminalNote = mode => (mode === 'exact'
+		? 'Inclui o que foi alterado por comandos de terminal (comparado com a foto do projeto no começo do pedido).'
+		: mode === 'approx'
+			? 'As mudanças por terminal são aproximadas: comparadas com o último commit anterior à conversa, só dos arquivos mexidos no horário dela.'
+			: 'Sem repositório git: o que foi feito por comandos de terminal não aparece aqui.');
+
 	/** Recalcula as alteracoes e atualiza arvore, painel de codigo-fonte, margem do editor e Explorer. */
-	async function reload() {
+	async function reload(useCache = false) {
 		if (loading) {
 			return loading;
 		}
@@ -433,13 +612,22 @@ function registerReviewView(context) {
 					view.message = 'Nenhuma conversa do agente encontrada para esta pasta.';
 				} else {
 					const computed = await computeReview(session, roots(), { baseMessageId: base?.messageId });
-					const { pending, hidden: hiddenCount } = await splitReviewed(computed.items, reviewedMap());
-					review = { ...computed, all: computed.items, pending };
+					let terminal = { mode: 'none', truncated: false, items: [] };
+					if (terminalEnabled()) {
+						try {
+							terminal = await terminalItems(computed.items, useCache);
+						} catch (error) {
+							console.warn('AgenteCode: mudanças por terminal indisponíveis', error && error.message);
+						}
+					}
+					const allItems = [...computed.items, ...terminal.items].sort((a, b) => a.file.localeCompare(b.file));
+					const { pending, hidden: hiddenCount } = await splitReviewed(allItems, reviewedMap());
+					review = { ...computed, items: allItems, all: allItems, pending, terminalMode: terminal.mode, terminalTruncated: terminal.truncated };
 					hidden = hiddenCount;
 					pendingByKey = new Map(pending.map(i => [keyOf(i.file), i]));
 
 					const notes = [`Conversa: ${session.title ?? session.id}`, `Comparando com: ${base ? `antes de "${base.prompt.slice(0, 40)}"` : 'o início da conversa'}`];
-					if (!computed.firstMessageId) {
+					if (!computed.firstMessageId && !allItems.length) {
 						notes.push('Esta conversa ainda não alterou arquivos.');
 					} else if (!pending.length) {
 						notes.push(hidden ? `Tudo revisado (${hidden}).` : 'Nenhuma diferença.');
@@ -447,7 +635,7 @@ function registerReviewView(context) {
 					if (hidden && pending.length) {
 						notes.push(`${hidden} já revisado(s) oculto(s).`);
 					}
-					notes.push('O que foi feito por comandos de terminal não aparece aqui.');
+					notes.push(terminalNote(terminal.mode));
 					view.message = notes.join(' · ');
 				}
 
@@ -542,11 +730,11 @@ function registerReviewView(context) {
 			}
 			const uri = vscode.Uri.file(item.file);
 			if (item.status === 'modified') {
-				await vscode.commands.executeCommand('vscode.diff', backupUri(session.id, item.file, item.backup), uri, `${path.basename(item.file)} (antes ↔ agora)`, { preview: true });
+				await vscode.commands.executeCommand('vscode.diff', backupUri(session.id, item.file, item.backup, item.source === 'terminal'), uri, `${path.basename(item.file)} (antes ↔ agora)`, { preview: true });
 			} else if (item.status === 'added') {
 				await vscode.commands.executeCommand('vscode.diff', backupUri(session.id, item.file, undefined), uri, `${path.basename(item.file)} (novo)`, { preview: true });
 			} else {
-				await vscode.commands.executeCommand('vscode.open', backupUri(session.id, item.file, item.backup), { preview: true }, `${path.basename(item.file)} (excluído pelo agente)`);
+				await vscode.commands.executeCommand('vscode.open', backupUri(session.id, item.file, item.backup, item.source === 'terminal'), { preview: true }, `${path.basename(item.file)} (excluído)`);
 			}
 		}),
 
@@ -641,7 +829,9 @@ function registerReviewView(context) {
 		}),
 
 		vscode.commands.registerCommand('agentecode.review.revertAll', async () => {
-			if (session && review?.firstMessageId) {
+			if (session && review?.pending.some(i => i.source === 'terminal')) {
+				await restoreFiles(review.pending, `revisão: ${review.pending.length} arquivo(s)`);
+			} else if (session && review?.firstMessageId) {
 				await rewindToCheckpoint(context, session, { messageId: review.firstMessageId, prompt: base ? base.prompt : 'o início da conversa' });
 				await reload();
 			}
@@ -707,12 +897,12 @@ function registerReviewView(context) {
 
 		vscode.window.onDidChangeWindowState(state => {
 			if (state.focused) {
-				void reload();
+				void reload(true);
 			}
 		}),
 		view.onDidChangeVisibility(e => {
 			if (e.visible) {
-				void reload();
+				void reload(true);
 			}
 		})
 	);
@@ -720,7 +910,7 @@ function registerReviewView(context) {
 	// Mantem margem, Explorer e painel em dia enquanto o agente trabalha (so com a janela em foco)
 	const timer = setInterval(() => {
 		if (vscode.window.state.focused) {
-			void reload();
+			void reload(true);
 		}
 	}, REFRESH_MS);
 	const first = setTimeout(() => void reload(), 3000);

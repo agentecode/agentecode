@@ -208,3 +208,9 @@ extensions/agentecode-core/test/reviewHunks.test.js
 extensions/agentecode-core/lib/reviewPanelLib.js
 extensions/agentecode-core/lib/reviewPanelHtml.js
 extensions/agentecode-core/test/reviewPanel.test.js
+extensions/agentecode-core/lib/gitSnapshot.js
+extensions/agentecode-core/lib/turnWatcher.js
+extensions/agentecode-core/lib/terminalChanges.js
+extensions/agentecode-core/test/gitSnapshot.test.js
+extensions/agentecode-core/test/turnWatcher.test.js
+extensions/agentecode-core/test/terminalChanges.test.js
