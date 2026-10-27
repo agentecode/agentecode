@@ -2,6 +2,14 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.10 - 27/10/2026
+
+A revisão do agente agora enxerga o que foi alterado por comandos de terminal.
+
+- **Mudanças feitas por terminal aparecem na revisão:** quando o agente altera arquivos com `perl`, `sed`, scripts ou `cat >`, o Claude Code não registra o antes e o depois, e esses arquivos ficavam fora da tela. Agora o AgenteCode usa o git para enxergá-los. A cada novo pedido ao agente ele tira uma foto do projeto (sem mexer no seu índice, nos seus arquivos nem nos seus commits) e compara no fim. Esses arquivos ganham a etiqueta **TERMINAL**, com o diff, os botões **Manter** e **Desfazer** por trecho e o **Descartar tudo** funcionando como nos demais.
+- **Conversas que já aconteceram:** sem foto, a comparação é aproximada (etiqueta **TERMINAL ~**): usa o último commit anterior à conversa e só os arquivos mexidos no horário dela, então o que foi commitado no meio não some. Em conversas muito longas a lista pode ficar grande.
+- Só vale em pastas com git. Para desligar, use `agentecode.review.terminalChanges: false`.
+
 ## v1.0.9 - 26/10/2026
 
 Revisão do que o agente mudou, direto no editor: botões Manter e Desfazer em cada trecho.
