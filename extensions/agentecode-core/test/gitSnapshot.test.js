@@ -93,4 +93,14 @@ describe('Fotos do projeto com o git', { skip: !hasGit }, () => {
 		const a = changes.find(c => c.path === 'a.txt');
 		assert.deepEqual([a.added, a.removed], [2, 1]);
 	});
+
+	test('committedPaths separa o que ja foi commitado do que ainda esta pendente', async () => {
+		const paths = ['a.txt', 'b.txt', 'novo.txt', 'ignorado.txt'];
+		assert.deepEqual([...await gs.committedPaths(repo, paths)], []);
+
+		// o usuario commita a edicao e a remocao no meio da conversa; o arquivo novo continua solto
+		run(repo, 'add', 'a.txt', 'b.txt');
+		run(repo, 'commit', '-q', '-m', 'no meio');
+		assert.deepEqual([...await gs.committedPaths(repo, paths)].sort(), ['a.txt', 'b.txt']);
+	});
 });

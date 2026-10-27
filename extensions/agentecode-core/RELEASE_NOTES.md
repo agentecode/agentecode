@@ -2,6 +2,13 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.11 - 27/10/2026
+
+A revisão do agente agora mostra só o que ainda está pendente.
+
+- **Só o que falta decidir:** a lista "Alterações do agente" deixa de mostrar os arquivos que você já commitou. Ela passa a bater com a tela de controle de código-fonte do git: o que o agente mexeu e ainda não foi commitado. Ao commitar, o arquivo sai da lista sozinho, e o **Descartar tudo** nunca mexe em algo que você já aprovou.
+- O histórico do que foi commitado continua no git, como sempre.
+
 ## v1.0.10 - 27/10/2026
 
 A revisão do agente agora enxerga o que foi alterado por comandos de terminal.

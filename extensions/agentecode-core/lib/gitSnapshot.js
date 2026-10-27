@@ -249,4 +249,37 @@ async function blobAt(root, tree, relPath) {
 	}
 }
 
-module.exports = { git, repoRoot, snapshotTree, headTree, hasObject, diffTrees, changesVsHead, commitBefore, changesSince, blobAt };
+/**
+ * Dos caminhos dados, os que ja estao resolvidos no git: iguais ao ultimo commit (ou apagados e com a remocao commitada).
+ * Arquivos fora do git, ignorados ou com qualquer diferenca (inclusive no indice) nao entram.
+ * @param {string} root
+ * @param {string[]} relPaths caminhos relativos a `root`, com '/'
+ * @returns {Promise<Set<string>>}
+ */
+async function committedPaths(root, relPaths) {
+	const result = new Set();
+	if (!relPaths.length || !await headTree(root)) {
+		return result;
+	}
+	const changed = new Set((await git(root, ['diff', '--name-only', '--no-renames', '-z', 'HEAD'])).toString('utf8').split('\0').filter(Boolean));
+	const untracked = new Set((await git(root, ['ls-files', '-o', '--exclude-standard', '-z'])).toString('utf8').split('\0').filter(Boolean));
+	const tracked = new Set();
+	for (let i = 0; i < relPaths.length; i += 100) {
+		const chunk = relPaths.slice(i, i + 100);
+		const listed = (await git(root, ['ls-tree', '--name-only', '-z', 'HEAD', '--', ...chunk])).toString('utf8').split('\0').filter(Boolean);
+		listed.forEach(p => tracked.add(p));
+	}
+	for (const rel of relPaths) {
+		if (changed.has(rel) || untracked.has(rel)) {
+			continue;
+		}
+		if (tracked.has(rel)) {
+			result.add(rel);
+		} else if (!fs.existsSync(path.join(root, ...rel.split('/')))) {
+			result.add(rel); // apagado e a remocao ja foi commitada
+		}
+	}
+	return result;
+}
+
+module.exports = { git, repoRoot, snapshotTree, headTree, hasObject, diffTrees, changesVsHead, commitBefore, changesSince, blobAt, committedPaths };

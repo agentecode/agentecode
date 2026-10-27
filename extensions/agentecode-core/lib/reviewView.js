@@ -585,6 +585,39 @@ function registerReviewView(context) {
 		return { ...result, items: result.items.filter(i => !known.has(keyOf(i.file)) && isInsideAny(i.file, roots())) };
 	}
 
+	/**
+	 * Tira da lista o que ja foi commitado: so fica o que ainda esta pendente no git (como a tela de controle de codigo-fonte).
+	 * Arquivos fora de um repositorio git continuam na lista.
+	 * @param {any[]} items
+	 */
+	async function dropCommitted(items) {
+		/** @type {Map<string, { file: string, rel: string }[]>} */
+		const byRoot = new Map();
+		for (const item of items) {
+			const dir = path.dirname(item.file);
+			let root = repoRootCache.get(dir);
+			if (root === undefined) {
+				root = await gs.repoRoot(dir);
+				repoRootCache.set(dir, root);
+			}
+			if (root) {
+				const list = byRoot.get(root) ?? [];
+				list.push({ file: item.file, rel: path.relative(root, item.file).split(path.sep).join('/') });
+				byRoot.set(root, list);
+			}
+		}
+		const done = new Set();
+		for (const [root, list] of byRoot) {
+			try {
+				const resolved = await gs.committedPaths(root, list.map(e => e.rel));
+				list.filter(e => resolved.has(e.rel)).forEach(e => done.add(e.file));
+			} catch (error) {
+				console.warn('AgenteCode: não foi possível comparar com o último commit', error && error.message);
+			}
+		}
+		return items.filter(item => !done.has(item.file));
+	}
+
 	const terminalNote = mode => (mode === 'exact'
 		? 'Inclui o que foi alterado por comandos de terminal (comparado com a foto do projeto no começo do pedido).'
 		: mode === 'approx'
@@ -620,7 +653,7 @@ function registerReviewView(context) {
 							console.warn('AgenteCode: mudanças por terminal indisponíveis', error && error.message);
 						}
 					}
-					const allItems = [...computed.items, ...terminal.items].sort((a, b) => a.file.localeCompare(b.file));
+					const allItems = await dropCommitted([...computed.items, ...terminal.items].sort((a, b) => a.file.localeCompare(b.file)));
 					const { pending, hidden: hiddenCount } = await splitReviewed(allItems, reviewedMap());
 					review = { ...computed, items: allItems, all: allItems, pending, terminalMode: terminal.mode, terminalTruncated: terminal.truncated };
 					hidden = hiddenCount;
