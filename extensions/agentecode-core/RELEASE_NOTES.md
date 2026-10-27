@@ -2,6 +2,14 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.12 - 27/10/2026
+
+A verificação de atualização ficou mais confiável.
+
+- **Sem o erro "Server returned 403":** a IDE passou a verificar a versão mais nova pela página de releases do github.com, que não tem o limite de 60 consultas por hora da API do GitHub (esse limite estourava em redes com muita gente, como escritórios). Se essa forma falhar, ela tenta a API como antes.
+- **Sem mensagens técnicas:** a verificação automática que roda sozinha falha em silêncio e tenta de novo mais tarde. Quem clica em "Check for Updates" e não consegue verificar vê só "Não foi possível verificar atualizações agora. Tente novamente em alguns minutos".
+- **Instalador ainda sendo publicado:** se a Release já existe mas o instalador ainda não foi anexado, a IDE espera em vez de avisar de uma atualização que não dá para baixar.
+
 ## v1.0.11 - 27/10/2026
 
 A revisão do agente agora mostra só o que ainda está pendente.

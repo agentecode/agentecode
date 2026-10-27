@@ -18,6 +18,29 @@ export interface IGitHubRelease {
 }
 
 /**
+ * Monta a Release a partir do endereço para onde `github.com/<repositório>/releases/latest` redireciona
+ * (`.../releases/tag/v1.2.3`), sem usar a API do GitHub (que limita 60 consultas por hora por endereço).
+ * Os anexos seguem os nomes fixos do workflow de release; quem chama confere se o instalador já existe.
+ */
+export function releaseFromLatestLocation(location: string | undefined, repository: string): IGitHubRelease | undefined {
+	const tag = /\/releases\/tag\/(?<tag>v\d+\.\d+\.\d+[^/?#]*)$/.exec(location ?? '')?.groups?.tag;
+	if (!tag) {
+		return undefined;
+	}
+	const base = `https://github.com/${repository}/releases`;
+	const asset = (name: string) => ({ name, browser_download_url: `${base}/download/${tag}/${name}` });
+	return {
+		tag_name: tag,
+		html_url: `${base}/tag/${tag}`,
+		assets: [
+			asset(`AgenteCodeSetup-x64-${tag}.exe`),
+			asset(`AgenteCodeSetup-x64-${tag}.exe.sha256`),
+			asset(`AgenteCode-linux-x64-${tag}.deb`),
+		]
+	};
+}
+
+/**
  * Extrai `[major, minor, patch]` de textos como `v1.2.3`, `Agente Code IDE v1.0.0` ou `v0.0.6-test`.
  * Sufixos de pré-lançamento são ignorados.
  */
@@ -49,6 +72,13 @@ export function isNewerVersion(current: string | undefined, latest: string | und
 function pickInstallerAsset(release: IGitHubRelease, platform: string) {
 	const pattern = platform === 'win32' ? /^AgenteCodeSetup-x64.*\.exe$/i : platform === 'linux' ? /\.deb$/i : undefined;
 	return pattern ? release.assets?.find(a => pattern.test(a.name)) : undefined;
+}
+
+/**
+ * Endereço do instalador da plataforma entre os anexos da Release, ou `undefined` se a plataforma não tem instalador.
+ */
+export function pickInstallerUrl(release: IGitHubRelease, platform: string): string | undefined {
+	return pickInstallerAsset(release, platform)?.browser_download_url;
 }
 
 /**

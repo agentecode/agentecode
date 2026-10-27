@@ -25,9 +25,12 @@ import { INativeHostMainService } from '../../native/electron-main/nativeHostMai
 import { IProductService } from '../../product/common/productService.js';
 import { asJson, asTextOrError, IRequestService } from '../../request/common/request.js';
 import { DisablementReason, IUpdateService, State, StateType, UpdateType } from '../common/update.js';
-import { buildInstallerArgs, IGitHubRelease, IGitHubUpdate, INSTALL_HELPER_SCRIPT, parseChecksum, parseVersion, toUpdate } from '../common/githubRelease.js';
+import { buildInstallerArgs, IGitHubRelease, IGitHubUpdate, INSTALL_HELPER_SCRIPT, parseChecksum, parseVersion, pickInstallerUrl, releaseFromLatestLocation, toUpdate } from '../common/githubRelease.js';
 
-const LATEST_RELEASE_URL = 'https://api.github.com/repos/agentecode/agentecode/releases/latest';
+const REPOSITORY = 'agentecode/agentecode';
+const LATEST_RELEASE_URL = `https://api.github.com/repos/${REPOSITORY}/releases/latest`;
+/** Redireciona para a página da última Release estável; ao contrário da API, não tem o limite de 60 consultas por hora. */
+const LATEST_RELEASE_PAGE_URL = `https://github.com/${REPOSITORY}/releases/latest`;
 /** Variável de ambiente que troca a URL consultada, para testar o aviso sem publicar uma Release. */
 const UPDATE_URL_OVERRIDE_ENV = 'AGENTECODE_UPDATE_URL';
 /** Com valor, o botão "Restart to Update" só registra no log o que faria, sem executar o instalador nem fechar a IDE. */
@@ -45,6 +48,8 @@ const ERR_CHECKSUM_FILE = 'O arquivo de verificação (.sha256) da Release está
 const ERR_HASH_MISMATCH = 'A verificação de integridade falhou: o arquivo baixado não confere com o SHA-256 da Release.';
 // allow-any-unicode-next-line
 const errServerStatus = (status: number | undefined) => `O servidor respondeu ${status} ao baixar o instalador.`;
+// allow-any-unicode-next-line
+const MSG_CHECK_FAILED = 'Não foi possível verificar atualizações agora. Tente novamente em alguns minutos.';
 // allow-any-unicode-next-line
 const MSG_DOWNLOAD_FAILED = 'Não foi possível baixar a atualização dentro da IDE.';
 // allow-any-unicode-next-line
@@ -156,14 +161,7 @@ export class GitHubUpdateService extends Disposable implements IUpdateService {
 
 		this.setState(State.CheckingForUpdates(explicit));
 		try {
-			const context = await this.requestService.request({
-				url: process.env[UPDATE_URL_OVERRIDE_ENV] || LATEST_RELEASE_URL,
-				headers: { 'Accept': 'application/vnd.github+json', 'User-Agent': `AgenteCode/${this.currentVersion}` },
-				callSite: 'updateService.github',
-			}, CancellationToken.None);
-
-			// 404: o repositório ainda não tem Release estável (pré-lançamentos não contam em /releases/latest).
-			const release = context.res.statusCode === 404 ? undefined : await asJson<IGitHubRelease>(context);
+			const release = await this.fetchLatestRelease();
 			const update = release ? toUpdate(release, this.currentVersion, process.platform) : undefined;
 
 			if (update) {
@@ -178,8 +176,60 @@ export class GitHubUpdateService extends Disposable implements IUpdateService {
 			}
 		} catch (error) {
 			this.logService.error('update#checkForUpdates(): failed to query GitHub', error);
-			this.setState(State.Idle(UpdateType.Setup, error instanceof Error ? error.message : String(error)));
+			// Verificação automática falha em silêncio; só quem clicou em "Check for Updates" recebe um aviso, sem detalhe técnico.
+			this.setState(State.Idle(UpdateType.Setup, explicit ? MSG_CHECK_FAILED : undefined));
 		}
+	}
+
+	/**
+	 * Última Release estável, ou `undefined` se não houver (ou se o instalador ainda não foi anexado).
+	 * Primeiro pela página do github.com, que não tem o limite de 60 consultas por hora da API; se isso falhar,
+	 * pela API.
+	 */
+	private async fetchLatestRelease(): Promise<IGitHubRelease | undefined> {
+		const override = process.env[UPDATE_URL_OVERRIDE_ENV];
+		if (!override) {
+			try {
+				return await this.fetchLatestReleaseFromWeb();
+			} catch (error) {
+				this.logService.warn('update#fetchLatestRelease(): github.com failed, trying the API', error instanceof Error ? error.message : String(error));
+			}
+		}
+		const context = await this.requestService.request({
+			url: override || LATEST_RELEASE_URL,
+			headers: { 'Accept': 'application/vnd.github+json', 'User-Agent': `AgenteCode/${this.currentVersion}` },
+			callSite: 'updateService.github',
+		}, CancellationToken.None);
+
+		// 404: o repositório ainda não tem Release estável (pré-lançamentos não contam em /releases/latest).
+		return context.res.statusCode === 404 ? undefined : (await asJson<IGitHubRelease>(context)) ?? undefined;
+	}
+
+	private async fetchLatestReleaseFromWeb(): Promise<IGitHubRelease | undefined> {
+		const headers = { 'User-Agent': `AgenteCode/${this.currentVersion}` };
+		const latest = await this.requestService.request({ url: LATEST_RELEASE_PAGE_URL, headers, followRedirects: 0, callSite: 'updateService.github.web' }, CancellationToken.None);
+		const status = latest.res.statusCode;
+		if (status === 404) {
+			return undefined;
+		}
+		const location = latest.res.headers.location;
+		const release = status !== undefined && status >= 300 && status < 400 ? releaseFromLatestLocation(Array.isArray(location) ? location[0] : location, REPOSITORY) : undefined;
+		if (!release) {
+			throw new Error(`unexpected response ${status} from ${LATEST_RELEASE_PAGE_URL}`);
+		}
+
+		// o instalador pode ainda não ter sido anexado (o build do Windows termina depois do Linux): sem ele, não há atualização por enquanto
+		const installerUrl = pickInstallerUrl(release, process.platform);
+		if (installerUrl) {
+			const head = await this.requestService.request({ type: 'HEAD', url: installerUrl, headers, followRedirects: 0, callSite: 'updateService.github.web.asset' }, CancellationToken.None);
+			if (head.res.statusCode === 404) {
+				return undefined;
+			}
+			if (!head.res.statusCode || head.res.statusCode >= 400) {
+				throw new Error(`unexpected response ${head.res.statusCode} from ${installerUrl}`);
+			}
+		}
+		return release;
 	}
 
 	async downloadUpdate(explicit: boolean): Promise<void> {

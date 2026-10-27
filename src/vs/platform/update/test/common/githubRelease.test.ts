@@ -7,7 +7,7 @@
 
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
-import { buildInstallerArgs, IGitHubRelease, INSTALL_HELPER_SCRIPT, isNewerVersion, parseChecksum, parseVersion, pickChecksumUrl, pickDownloadUrl, toUpdate } from '../../common/githubRelease.js';
+import { buildInstallerArgs, IGitHubRelease, INSTALL_HELPER_SCRIPT, isNewerVersion, parseChecksum, parseVersion, pickChecksumUrl, pickDownloadUrl, pickInstallerUrl, releaseFromLatestLocation, toUpdate } from '../../common/githubRelease.js';
 
 suite('GitHub release helpers', () => {
 
@@ -85,6 +85,32 @@ suite('GitHub release helpers', () => {
 				/powershell|cmd\.exe/i.test(INSTALL_HELPER_SCRIPT),
 			],
 			[true, true, true, false]
+		);
+	});
+
+	test('releaseFromLatestLocation monta a Release a partir do redirecionamento de /releases/latest', () => {
+		const fromWeb = releaseFromLatestLocation('https://github.com/agentecode/agentecode/releases/tag/v1.0.12', 'agentecode/agentecode')!;
+		assert.deepStrictEqual(
+			[
+				releaseFromLatestLocation('https://github.com/agentecode/agentecode/releases', 'agentecode/agentecode'),
+				releaseFromLatestLocation(undefined, 'agentecode/agentecode'),
+				fromWeb.tag_name,
+				pickInstallerUrl(fromWeb, 'win32'),
+				pickChecksumUrl(fromWeb, 'win32'),
+				pickInstallerUrl(fromWeb, 'linux'),
+				pickInstallerUrl(fromWeb, 'darwin'),
+				toUpdate(fromWeb, '1.0.11', 'win32')?.version,
+			],
+			[
+				undefined,
+				undefined,
+				'v1.0.12',
+				'https://github.com/agentecode/agentecode/releases/download/v1.0.12/AgenteCodeSetup-x64-v1.0.12.exe',
+				'https://github.com/agentecode/agentecode/releases/download/v1.0.12/AgenteCodeSetup-x64-v1.0.12.exe.sha256',
+				'https://github.com/agentecode/agentecode/releases/download/v1.0.12/AgenteCode-linux-x64-v1.0.12.deb',
+				undefined,
+				'v1.0.12',
+			]
 		);
 	});
 
