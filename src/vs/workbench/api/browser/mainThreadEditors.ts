@@ -36,6 +36,7 @@ import { LineRangeMapping } from '../../../editor/common/diff/rangeMapping.js';
 import { equals } from '../../../base/common/arrays.js';
 import { Event } from '../../../base/common/event.js';
 import { DiffAlgorithmName } from '../../../editor/common/services/editorWorker.js';
+import { OpenWithDefaultEditorSetting, shouldOpenWithDefaultEditor } from '../../common/agentecodeOpenWithDefaultEditor.js';
 
 export interface IMainThreadEditorLocator {
 	getEditor(id: string): MainThreadTextEditor | undefined;
@@ -249,7 +250,8 @@ export class MainThreadTextEditors implements MainThreadTextEditorsShape {
 			// preserve pre 1.38 behaviour to not make group active when preserveFocus: true
 			// but make sure to restore the editor to fix https://github.com/microsoft/vscode/issues/79633
 			activation: options.preserveFocus ? EditorActivation.RESTORE : undefined,
-			override: EditorResolution.EXCLUSIVE_ONLY
+			// AgenteCode: configured files (Markdown by default) open with their default editor, e.g. the preview
+			override: shouldOpenWithDefaultEditor(this._configurationService.getValue(OpenWithDefaultEditorSetting), uri) ? undefined : EditorResolution.EXCLUSIVE_ONLY
 		};
 
 		const input: IResourceEditorInput = {

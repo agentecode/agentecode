@@ -50,6 +50,7 @@ import { IWorkingCopyFileService, WorkingCopyFileEvent } from '../../services/wo
 import { IWorkingCopyService } from '../../services/workingCopy/common/workingCopyService.js';
 import { IUriIdentityService } from '../../../platform/uriIdentity/common/uriIdentity.js';
 import { IUntitledTextEditorService } from '../../services/untitled/common/untitledTextEditorService.js';
+import { shouldEnableFindWidget } from '../../contrib/webview/browser/agentecodeFindWidget.js';
 
 const enum CustomEditorModelType {
 	Custom,
@@ -206,7 +207,7 @@ export class MainThreadCustomEditors extends Disposable implements extHostProtoc
 				webviewInput.webview.origin = this._webviewOriginStore.getOrigin(viewType, extension.id);
 
 				const handle = this.getOrAddWebviewInput(webviewInput, serializeBuffersForPostMessage);
-				webviewInput.webview.options = options;
+				webviewInput.webview.options = { ...options, enableFindWidget: options.enableFindWidget ?? shouldEnableFindWidget(viewType) }; // AgenteCode: Ctrl+F searches inside the configured custom editors (e.g. the Markdown preview)
 				webviewInput.webview.extension = extension;
 
 				const resource = webviewInput instanceof CustomEditorDiffInput ? webviewInput.modifiedResource : webviewInput.resource;

@@ -217,6 +217,7 @@ import './contrib/preferences/browser/preferencesSearch.js';
 import './contrib/performance/browser/performance.contribution.js';
 import './contrib/agentecodeLayout/browser/agentecodeLayout.contribution.js';
 import './contrib/webview/browser/agentecodeFindWidget.contribution.js';
+import './contrib/agentecodeEditor/browser/agentecodeEditor.contribution.js';
 
 // Notebook
 import './contrib/notebook/browser/notebook.contribution.js';

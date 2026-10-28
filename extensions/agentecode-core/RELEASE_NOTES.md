@@ -2,6 +2,14 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.16 - 28/10/2026
+
+Markdown files open formatted, and search now works in the Markdown preview.
+
+- **Ctrl+F works in the Markdown preview for real:** v1.0.15 added the find box only for some preview types, and the Markdown preview you get when opening a `.md` file was not one of them. Now it is. Press `Ctrl+F` with the preview focused to search the document.
+- **Markdown links open formatted:** clicking a `.md` file link in the Claude Code chat (or any extension opening a Markdown file) used to show plain text. It now opens in your default Markdown editor, such as the Markhub preview. To edit the source, use "Reopen Editor With..." and pick the text editor.
+- **Configurable:** `agentecode.editor.openWithDefaultEditor` lists the file patterns that open this way (default: `**/*.md`; use `[]` to turn it off). `agentecode.webview.findWidget` (default: `markhub`) still lists the extension webviews that get the find box.
+
 ## v1.0.15 - 28/10/2026
 
 Search inside Markdown previews.
