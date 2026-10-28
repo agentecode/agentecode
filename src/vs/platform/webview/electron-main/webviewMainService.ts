@@ -76,7 +76,52 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 				}
 			};
 			frame.on('found-in-frame', foundInFrameHandler);
+		} else {
+			// AgenteCode: stock Electron has no `findInFrame`, so search the webview content with the browser's own find
+			await this.findWithScript(initialFrame, text, options);
 		}
+	}
+
+	/**
+	 * Fallback for Electron builds without `WebFrameMain.findInFrame`: runs `window.find` inside the webview content
+	 * frames (a webview host frame contains the extension's content frame). It selects and reveals the match but cannot
+	 * count matches, so a hit is reported as one match.
+	 */
+	private async findWithScript(hostFrame: WebFrameMain, text: string, options: { findNext?: boolean; forward?: boolean }): Promise<void> {
+		const forward = options.forward !== false;
+		const script = `(function () {
+			const selection = window.getSelection();
+			if (${options.findNext ? 'true' : 'false'} && selection) {
+				selection.removeAllRanges();
+			}
+			const found = window.find(${JSON.stringify(text)}, false, ${forward ? 'false' : 'true'}, true, false, false, false);
+			if (found && selection && selection.rangeCount) {
+				// window.find selects the match but does not scroll to it inside a webview, so reveal it here
+				const container = selection.getRangeAt(0).startContainer;
+				const element = container.nodeType === 1 ? container : container.parentElement;
+				if (element) {
+					element.scrollIntoView({ block: 'center', inline: 'nearest' });
+				}
+			}
+			return found;
+		})()`;
+
+		let found = false;
+		for (const frame of hostFrame.framesInSubtree) {
+			if (frame === hostFrame) {
+				continue;
+			}
+			try {
+				if (await frame.executeJavaScript(script) === true) {
+					found = true;
+					break;
+				}
+			} catch {
+				// the frame can go away while searching
+			}
+		}
+
+		this._onFoundInFrame.fire({ requestId: 0, activeMatchOrdinal: found ? 1 : 0, matches: found ? 1 : 0, finalUpdate: true });
 	}
 
 	public async stopFindInFrame(id: WebviewWebContentsId | WebviewWindowId, frameName: string, options: { keepSelection?: boolean }): Promise<void> {
@@ -89,6 +134,13 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 		const frame = initialFrame as unknown as WebFrameMainWithFindSupport;
 		if (typeof frame.stopFindInFrame === 'function') {
 			frame.stopFindInFrame(options.keepSelection ? 'keepSelection' : 'clearSelection');
+		} else if (!options.keepSelection) {
+			// AgenteCode: fallback search only selects text, so clear the selection when the find box closes
+			for (const child of initialFrame.framesInSubtree) {
+				if (child !== initialFrame) {
+					child.executeJavaScript('window.getSelection()?.removeAllRanges()').catch(() => { });
+				}
+			}
 		}
 	}
 

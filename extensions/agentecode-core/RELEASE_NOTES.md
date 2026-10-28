@@ -2,6 +2,13 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.17 - 28/10/2026
+
+Search in the Markdown preview now actually finds text.
+
+- **Ctrl+F finds and scrolls in previews:** in v1.0.15 and v1.0.16 the find box opened in the Markdown preview but typing a word did nothing, because the IDE's Electron build lacks the function VS Code uses to search inside webviews. AgenteCode now searches the preview content itself: the first match is highlighted and scrolled into view, and `Enter` or the down arrow jumps to the next match (up arrow goes back). Like the browser's own find, it does not show a "1 of N" counter.
+- This applies to every webview that gets the find box (see `agentecode.webview.findWidget`), not only Markhub.
+
 ## v1.0.16 - 28/10/2026
 
 Markdown files open formatted, and search now works in the Markdown preview.
