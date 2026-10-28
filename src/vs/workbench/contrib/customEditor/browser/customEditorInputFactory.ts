@@ -22,6 +22,7 @@ import { IWorkingCopyBackupMeta, IWorkingCopyIdentifier } from '../../../service
 import { IWorkingCopyBackupService } from '../../../services/workingCopy/common/workingCopyBackup.js';
 import { IWorkingCopyEditorHandler, IWorkingCopyEditorService } from '../../../services/workingCopy/common/workingCopyEditorService.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
+import { shouldEnableFindWidget } from '../../webview/browser/agentecodeFindWidget.js';
 
 export interface CustomDocumentBackupData extends IWorkingCopyBackupMeta {
 	readonly viewType: string;
@@ -220,7 +221,7 @@ function reviveWebview(webviewService: IWebviewService, data: { origin: string |
 		title: data.title,
 		options: {
 			purpose: WebviewContentPurpose.CustomEditor,
-			enableFindWidget: data.webviewOptions.enableFindWidget,
+			enableFindWidget: data.webviewOptions.enableFindWidget ?? shouldEnableFindWidget(data.viewType), // AgenteCode: Ctrl+F searches inside the configured custom editors
 			retainContextWhenHidden: data.webviewOptions.retainContextWhenHidden,
 		},
 		contentOptions: data.contentOptions,
@@ -294,7 +295,7 @@ export class ComplexCustomWorkingCopyEditorHandler extends Disposable implements
 		const webview = reviveWebview(this._webviewService, {
 			viewType: backupData.viewType,
 			origin: backupData.webview.origin,
-			webviewOptions: restoreWebviewOptions(backupData.webview.options),
+			webviewOptions: restoreWebviewOptions(backupData.webview.options, backupData.viewType),
 			contentOptions: restoreWebviewContentOptions(backupData.webview.options),
 			state: backupData.webview.state,
 			extension,

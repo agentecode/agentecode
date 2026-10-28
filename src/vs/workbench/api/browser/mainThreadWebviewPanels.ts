@@ -24,6 +24,7 @@ import { IExtHostContext } from '../../services/extensions/common/extHostCustome
 import * as extHostProtocol from '../common/extHost.protocol.js';
 import { MainThreadWebviews, reviveWebviewContentOptions, reviveWebviewExtension } from './mainThreadWebviews.js';
 import { ThemeIcon } from '../../../base/common/themables.js';
+import { shouldEnableFindWidget } from '../../contrib/webview/browser/agentecodeFindWidget.js';
 
 /**
  * Bi-directional map between webview handles and inputs.
@@ -170,7 +171,7 @@ export class MainThreadWebviewPanels extends Disposable implements extHostProtoc
 			origin,
 			providedViewType: viewType,
 			title: initData.title,
-			options: reviveWebviewOptions(initData.panelOptions),
+			options: reviveWebviewOptions(initData.panelOptions, viewType),
 			contentOptions: reviveWebviewContentOptions(initData.webviewOptions),
 			extension
 		}, this.webviewPanelViewType.fromExternal(viewType), initData.title, undefined, mainThreadShowOptions);
@@ -382,9 +383,10 @@ function reviveWebviewIcon(value: extHostProtocol.IWebviewIconPath | undefined):
 	};
 }
 
-function reviveWebviewOptions(panelOptions: extHostProtocol.IWebviewPanelOptions): WebviewOptions {
+function reviveWebviewOptions(panelOptions: extHostProtocol.IWebviewPanelOptions, viewType: string): WebviewOptions {
 	return {
-		enableFindWidget: panelOptions.enableFindWidget,
+		// AgenteCode: Ctrl+F searches inside the configured extension webviews (e.g. Markdown previews)
+		enableFindWidget: panelOptions.enableFindWidget ?? shouldEnableFindWidget(viewType),
 		retainContextWhenHidden: panelOptions.retainContextWhenHidden,
 	};
 }

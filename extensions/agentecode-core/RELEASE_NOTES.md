@@ -2,6 +2,13 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.15 - 28/10/2026
+
+Search inside Markdown previews.
+
+- **Ctrl+F in the Markhub preview:** pressing `Ctrl+F` with a Markhub preview focused now opens the find box, so you can search inside the document you are reading. It also works for previews restored when the IDE reopens.
+- **Configurable list:** the new `agentecode.webview.findWidget` setting lists the extension webviews that get the find box (default: `markhub`). Add the name of any other preview or panel that lacks search. Extensions that enable or disable the find box themselves are not affected, and Ctrl+F keeps its usual meaning in editors, the terminal and lists.
+
 ## v1.0.14 - 27/10/2026
 
 AgenteCode now speaks English by default, and Portuguese follows the IDE display language.

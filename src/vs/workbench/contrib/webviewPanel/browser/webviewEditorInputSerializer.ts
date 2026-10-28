@@ -11,6 +11,7 @@ import { WebviewContentOptions, WebviewExtensionDescription, WebviewOptions } fr
 import { WebviewIconPath, WebviewInput } from './webviewEditorInput.js';
 import { IWebviewWorkbenchService } from './webviewWorkbenchService.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
+import { shouldEnableFindWidget } from '../../webview/browser/agentecodeFindWidget.js';
 
 export type SerializedWebviewOptions = WebviewOptions & WebviewContentOptions;
 
@@ -98,7 +99,7 @@ export class WebviewEditorInputSerializer implements IEditorSerializer {
 			extension: reviveWebviewExtensionDescription(data.extensionId, data.extensionLocation),
 			iconPath: reviveWebviewIconPath(data.iconPath),
 			state: reviveState(data.state),
-			webviewOptions: restoreWebviewOptions(data.options),
+			webviewOptions: restoreWebviewOptions(data.options, data.viewType),
 			contentOptions: restoreWebviewContentOptions(data.options),
 		};
 	}
@@ -177,8 +178,9 @@ function reviveState(state: unknown | undefined): undefined | string {
 	return typeof state === 'string' ? state : undefined;
 }
 
-export function restoreWebviewOptions(options: SerializedWebviewOptions): WebviewOptions {
-	return options;
+export function restoreWebviewOptions(options: SerializedWebviewOptions, viewType?: string): WebviewOptions {
+	// AgenteCode: webviews saved before the find widget was configurable get it after a restart
+	return { ...options, enableFindWidget: options.enableFindWidget ?? shouldEnableFindWidget(viewType) };
 }
 
 export function restoreWebviewContentOptions(options: SerializedWebviewOptions): WebviewContentOptions {
