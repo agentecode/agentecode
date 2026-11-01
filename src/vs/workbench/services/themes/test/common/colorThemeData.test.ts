@@ -8,7 +8,7 @@ import { Color } from '../../../../../base/common/color.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { InMemoryStorageService, StorageScope } from '../../../../../platform/storage/common/storage.js';
 import { editorBackground, foreground, inputBackground, inputForeground } from '../../../../../platform/theme/common/colorRegistry.js';
-import { ColorThemeData } from '../../common/colorThemeData.js';
+import { ColorThemeData, isEditorColor } from '../../common/colorThemeData.js';
 
 suite('ColorThemeData - transient colors', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
@@ -79,5 +79,76 @@ suite('ColorThemeData - transient colors', () => {
 			restored: restored.getColor(editorBackground)?.toString(),
 			unchangedStorage: storageService.get(ColorThemeData.STORAGE_KEY, StorageScope.PROFILE) === originalStorage,
 		}, { active: '#28221e', otherWindow: '#202020', restored: '#202020', unchangedStorage: true });
+	});
+});
+
+suite('ColorThemeData - separate editor theme', () => {
+	ensureNoDisposablesAreLeakedInTestSuite();
+
+	function createThemes() {
+		const main = ColorThemeData.createUnloadedTheme('vs-dark', { [editorBackground]: '#202020', [inputBackground]: '#101010' });
+		const editor = ColorThemeData.createUnloadedTheme('vs', { [editorBackground]: '#ffffff', [inputBackground]: '#eeeeee' });
+		return { main, editor };
+	}
+
+	test('editor colors and syntax come from the editor theme, everything else from the main theme', () => {
+		const { main, editor } = createThemes();
+		editor.setCustomTokenColors({ textMateRules: [{ scope: 'keyword', settings: { foreground: '#ff0000' } }] });
+		const hasKeywordRule = (theme: ColorThemeData) => theme.tokenColors.some(rule => rule.scope === 'keyword' && rule.settings.foreground === '#FF0000');
+		const before = hasKeywordRule(main);
+		main.setEditorTheme(editor);
+		assert.deepStrictEqual({
+			before,
+			editorBackground: main.getColor(editorBackground)?.toString(),
+			inputBackground: main.getColor(inputBackground)?.toString(),
+			tokenBackground: main.tokenColors[0].settings.background,
+			editorSyntax: hasKeywordRule(main),
+			defines: main.defines(editorBackground),
+		}, {
+			before: false,
+			editorBackground: '#ffffff',
+			inputBackground: '#101010',
+			tokenBackground: '#FFFFFF',
+			editorSyntax: true,
+			defines: true,
+		});
+	});
+
+	test('customizations of the main theme still win, and clearing the editor theme restores it', () => {
+		const { main, editor } = createThemes();
+		main.setEditorTheme(editor);
+		main.setCustomColors({ [editorBackground]: '#123456' });
+		const customized = main.getColor(editorBackground)?.toString();
+		main.setCustomColors({});
+		main.setEditorTheme(undefined);
+		assert.deepStrictEqual({ customized, restored: main.getColor(editorBackground)?.toString() }, { customized: '#123456', restored: '#202020' });
+	});
+
+	test('the interface view of the theme ignores the editor theme without changing it', () => {
+		const { main, editor } = createThemes();
+		main.setEditorTheme(editor);
+		const interfaceTheme = main.getInterfaceTheme();
+		assert.deepStrictEqual({
+			interfaceEditorBackground: interfaceTheme.getColor(editorBackground)?.toString(),
+			interfaceTokenBackground: interfaceTheme.tokenColors[0].settings.background,
+			activeEditorBackground: main.getColor(editorBackground)?.toString(),
+			sameWithoutEditorTheme: ColorThemeData.createUnloadedTheme('vs-dark').getInterfaceTheme().id,
+		}, {
+			interfaceEditorBackground: '#202020',
+			interfaceTokenBackground: '#202020',
+			activeEditorBackground: '#ffffff',
+			sameWithoutEditorTheme: 'vs-dark',
+		});
+	});
+
+	test('only editor colors are taken from the editor theme', () => {
+		assert.deepStrictEqual(
+			['editor.background', 'editorCursor.foreground', 'editorLineNumber.foreground', 'diffEditor.insertedTextBackground', 'minimap.background'].map(isEditorColor),
+			[true, true, true, true, true]
+		);
+		assert.deepStrictEqual(
+			['editorWidget.background', 'editorGroup.border', 'sideBar.background', 'tab.activeBackground', 'input.background', 'terminal.background'].map(isEditorColor),
+			[false, false, false, false, false, false]
+		);
 	});
 });

@@ -2,7 +2,7 @@
   "name": "agentecode-core",
   "displayName": "AgenteCode Core",
   "description": "%description%",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "publisher": "agentecode",
   "license": "MIT",
   "icon": "media/icon.png",

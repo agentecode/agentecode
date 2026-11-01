@@ -26,6 +26,11 @@ const colorThemeSettingEnum: string[] = [];
 const colorThemeSettingEnumItemLabels: string[] = [];
 const colorThemeSettingEnumDescriptions: string[] = [];
 
+// AgenteCode: the editor theme setting accepts the same themes plus '' (follow the color theme)
+const editorThemeSettingEnum: string[] = [''];
+const editorThemeSettingEnumItemLabels: string[] = [nls.localize('editorThemeMatch', "Match the interface theme")];
+const editorThemeSettingEnumDescriptions: string[] = [''];
+
 export function formatSettingAsLink(str: string) {
 	return `\`#${str}#\``;
 }
@@ -40,6 +45,16 @@ const colorThemeSettingSchema: IConfigurationPropertySchema = {
 	enum: colorThemeSettingEnum,
 	enumDescriptions: colorThemeSettingEnumDescriptions,
 	enumItemLabels: colorThemeSettingEnumItemLabels,
+	errorMessage: nls.localize('colorThemeError', "Theme is unknown or not installed."),
+};
+const editorThemeSettingSchema: IConfigurationPropertySchema = {
+	type: 'string',
+	markdownDescription: nls.localize('editorTheme', "Specifies a color theme used only by the code editors (colors and syntax), while the rest of the workbench keeps the theme from {0}. Leave empty to use the same theme everywhere.", formatSettingAsLink(ThemeSettings.COLOR_THEME)),
+	default: '',
+	tags: [COLOR_THEME_CONFIGURATION_SETTINGS_TAG],
+	enum: editorThemeSettingEnum,
+	enumDescriptions: editorThemeSettingEnumDescriptions,
+	enumItemLabels: editorThemeSettingEnumItemLabels,
 	errorMessage: nls.localize('colorThemeError', "Theme is unknown or not installed."),
 };
 const preferredDarkThemeSettingSchema: IConfigurationPropertySchema = {
@@ -133,6 +148,7 @@ const themeSettingsConfiguration: IConfigurationNode = {
 	type: 'object',
 	properties: {
 		[ThemeSettings.COLOR_THEME]: colorThemeSettingSchema,
+		[ThemeSettings.EDITOR_THEME]: editorThemeSettingSchema,
 		[ThemeSettings.PREFERRED_DARK_THEME]: preferredDarkThemeSettingSchema,
 		[ThemeSettings.PREFERRED_LIGHT_THEME]: preferredLightThemeSettingSchema,
 		[ThemeSettings.PREFERRED_HC_DARK_THEME]: preferredHCDarkThemeSettingSchema,
@@ -235,6 +251,9 @@ export function updateColorThemeConfigurationSchemas(themes: IWorkbenchColorThem
 	colorThemeSettingEnum.splice(0, colorThemeSettingEnum.length, ...themes.map(t => t.settingsId));
 	colorThemeSettingEnumDescriptions.splice(0, colorThemeSettingEnumDescriptions.length, ...themes.map(t => t.description || ''));
 	colorThemeSettingEnumItemLabels.splice(0, colorThemeSettingEnumItemLabels.length, ...themes.map(t => t.label || ''));
+	editorThemeSettingEnum.splice(1, Number.MAX_VALUE, ...themes.map(t => t.settingsId));
+	editorThemeSettingEnumDescriptions.splice(1, Number.MAX_VALUE, ...themes.map(t => t.description || ''));
+	editorThemeSettingEnumItemLabels.splice(1, Number.MAX_VALUE, ...themes.map(t => t.label || ''));
 
 	const themeSpecificWorkbenchColors: IJSONSchema = { properties: {} };
 	const themeSpecificTokenColors: IJSONSchema = { properties: {} };
@@ -289,6 +308,11 @@ export class ThemeConfiguration {
 
 	public get colorTheme(): string {
 		return this.configurationService.getValue<string>(this.getColorThemeSettingId());
+	}
+
+	/** AgenteCode: settings id of the theme used only by the code editors; empty when they follow the color theme. */
+	public get editorTheme(): string {
+		return this.configurationService.getValue<string>(ThemeSettings.EDITOR_THEME) || '';
 	}
 
 	public get fileIconTheme(): string | null {
@@ -371,6 +395,10 @@ export class ThemeConfiguration {
 	public async setColorTheme(theme: IWorkbenchColorTheme, settingsTarget: ThemeSettingTarget): Promise<IWorkbenchColorTheme> {
 		await this.writeConfiguration(this.getColorThemeSettingId(), theme.settingsId, settingsTarget);
 		return theme;
+	}
+
+	public async setEditorTheme(theme: IWorkbenchColorTheme | undefined, settingsTarget: ThemeSettingTarget): Promise<void> {
+		await this.writeConfiguration(ThemeSettings.EDITOR_THEME, theme?.settingsId, settingsTarget);
 	}
 
 	public async setFileIconTheme(theme: IWorkbenchFileIconTheme, settingsTarget: ThemeSettingTarget): Promise<IWorkbenchFileIconTheme> {

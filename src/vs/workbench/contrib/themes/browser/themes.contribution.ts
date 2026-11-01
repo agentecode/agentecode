@@ -41,6 +41,7 @@ import { mainWindow } from '../../../../base/browser/window.js';
 import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
 import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
+import { pickEditorTheme } from './agentecodeEditorThemePicker.js';
 
 export const manageExtensionIcon = registerIcon('theme-selection-manage-extension', Codicon.gear, localize('manageExtensionIcon', 'Icon for the \'Manage\' action in the theme selection quick pick.'));
 
@@ -487,6 +488,25 @@ registerAction2(class extends Action2 {
 	}
 });
 
+const SelectEditorThemeCommandId = 'agentecode.action.selectEditorTheme';
+
+// AgenteCode: a color theme used only by the code editors, while the rest keeps the Color Theme
+registerAction2(class extends Action2 {
+
+	constructor() {
+		super({
+			id: SelectEditorThemeCommandId,
+			title: localize2('selectEditorTheme.label', 'Editor Theme'),
+			category: Categories.Preferences,
+			f1: true
+		});
+	}
+
+	override async run(accessor: ServicesAccessor) {
+		return pickEditorTheme(accessor);
+	}
+});
+
 const SelectFileIconThemeCommandId = 'workbench.action.selectIconTheme';
 
 registerAction2(class extends Action2 {
@@ -919,6 +939,14 @@ MenuRegistry.appendMenuItem(ThemesSubMenu, {
 		title: localize('selectTheme.label', 'Color Theme')
 	},
 	order: 1
+});
+
+MenuRegistry.appendMenuItem(ThemesSubMenu, {
+	command: {
+		id: SelectEditorThemeCommandId,
+		title: localize('themes.selectEditorTheme.label', "Editor Theme")
+	},
+	order: 1.5
 });
 
 MenuRegistry.appendMenuItem(ThemesSubMenu, {

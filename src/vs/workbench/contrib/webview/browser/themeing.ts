@@ -48,7 +48,8 @@ export class WebviewThemeDataProvider extends Disposable {
 	}
 
 	public getTheme(): IWorkbenchColorTheme {
-		return this._themeService.getColorTheme();
+		// AgenteCode: webviews (the Claude panel included) follow the interface theme, not the separate editor theme
+		return this._themeService.getInterfaceColorTheme();
 	}
 
 	public getWebviewThemeData(): WebviewThemeData {
@@ -60,7 +61,7 @@ export class WebviewThemeDataProvider extends Disposable {
 			const editorFontLigatures = new EditorFontLigatures().validate(configuration.fontLigatures);
 			const linkUnderlines = this._configurationService.getValue('accessibility.underlineLinks');
 
-			const theme = this._themeService.getColorTheme();
+			const theme = this._themeService.getInterfaceColorTheme();
 			const exportedColors = colorRegistry.getColorRegistry().getColors().reduce<Record<string, string>>((colors, entry) => {
 				const color = theme.getColor(entry.id);
 				if (color) {

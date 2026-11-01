@@ -2,6 +2,14 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.19 - 01/11/2026
+
+A separate theme for the code editors, like Sublime's color scheme.
+
+- **Editor Theme:** pick one theme for the interface and another one only for the code. The new command **Preferences: Editor Theme** (also under File > Preferences > Themes > Editor Theme) opens the same list of themes as Color Theme, with a preview as you move through it. The editor colors, syntax colors, gutter, minimap and diff colors come from the editor theme, while the rest of the window, including the Claude panel and the agent lists, keeps the Color Theme. For example, Everforest for the interface and One Dark Pro for the code.
+- **Nothing changes unless you ask:** the first entry, "Match the interface theme", is selected by default, so a single theme is used everywhere, as before. Choosing it again removes the setting. The choice is stored in `agentecode.editorTheme`, so it follows your settings sync.
+- Pairing a dark interface with a light editor (or the other way around) works, but the edges, such as tabs and search boxes, look best when both themes have a similar brightness.
+
 ## v1.0.18 - 01/11/2026
 
 Sensitive files get flagged in the agent changes, and the Git branch is back in the status bar.

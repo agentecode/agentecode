@@ -47,6 +47,21 @@ export type TokenStyleDefinitions = { [P in keyof TokenStyleData]?: TokenStyleDe
 
 export type TextMateThemingRuleDefinitions = { [P in keyof TokenStyleData]?: ITextMateThemingRule | undefined; } & { scope?: ProbeScope };
 
+/**
+ * AgenteCode: color ids drawn by the code editors. When a separate editor theme is chosen, these (and the syntax rules)
+ * come from it, while every other color keeps coming from the main theme.
+ */
+const editorColorPrefixes = [
+	'editor.', 'editorLineNumber.', 'editorCursor.', 'editorWhitespace.', 'editorIndentGuide.', 'editorRuler.', 'editorCodeLens.',
+	'editorBracketMatch.', 'editorBracketHighlight.', 'editorBracketPairGuide.', 'editorGutter.', 'editorError.', 'editorWarning.',
+	'editorInfo.', 'editorHint.', 'editorLink.', 'editorUnnecessaryCode.', 'editorOverviewRuler.', 'editorInlayHint.',
+	'editorGhostText.', 'editorStickyScroll', 'editorUnicodeHighlight.', 'diffEditor.', 'minimap.', 'minimapGutter.', 'minimapSlider.'
+];
+
+export function isEditorColor(colorId: ColorIdentifier): boolean {
+	return editorColorPrefixes.some(prefix => colorId.startsWith(prefix));
+}
+
 interface IColorOrDefaultMap {
 	[id: string]: Color | typeof DEFAULT_COLOR_CONFIG_VALUE;
 }
@@ -74,6 +89,9 @@ export class ColorThemeData implements IWorkbenchColorTheme {
 	private customColorMap: IColorOrDefaultMap = {};
 	private transientColorMap: IColorMap | undefined;
 
+	// AgenteCode: theme used only by the code editors (colors and syntax); undefined means the editors follow this theme
+	private editorTheme: ColorThemeData | undefined;
+
 	private semanticTokenRules: SemanticTokenRule[] = [];
 	private customSemanticTokenRules: SemanticTokenRule[] = [];
 
@@ -92,6 +110,9 @@ export class ColorThemeData implements IWorkbenchColorTheme {
 	}
 
 	get semanticHighlighting(): boolean {
+		if (this.editorTheme) {
+			return this.editorTheme.semanticHighlighting;
+		}
 		if (this.customSemanticHighlighting !== undefined) {
 			return this.customSemanticHighlighting;
 		}
@@ -102,6 +123,9 @@ export class ColorThemeData implements IWorkbenchColorTheme {
 	}
 
 	get tokenColors(): ITextMateThemingRule[] {
+		if (this.editorTheme) {
+			return this.editorTheme.tokenColors;
+		}
 		if (!this.textMateThemingRules) {
 			const result: ITextMateThemingRule[] = [];
 
@@ -159,6 +183,9 @@ export class ColorThemeData implements IWorkbenchColorTheme {
 			return customColor;
 		}
 		if (customColor === undefined) { /* !== DEFAULT_COLOR_CONFIG_VALUE */
+			if (this.editorTheme && isEditorColor(colorId)) {
+				return this.editorTheme.getColor(colorId, useDefault);
+			}
 			const color = this.colorMap[colorId];
 			if (color !== undefined) {
 				return color;
@@ -267,6 +294,9 @@ export class ColorThemeData implements IWorkbenchColorTheme {
 	}
 
 	public getTokenColorIndex(): TokenColorIndex {
+		if (this.editorTheme) {
+			return this.editorTheme.getTokenColorIndex();
+		}
 		// collect all colors that tokens can have
 		if (!this.tokenColorIndex) {
 			const index = new TokenColorIndex();
@@ -291,6 +321,9 @@ export class ColorThemeData implements IWorkbenchColorTheme {
 
 
 	public getTokenFontIndex(): TokenFontIndex {
+		if (this.editorTheme) {
+			return this.editorTheme.getTokenFontIndex();
+		}
 		if (!this.tokenFontIndex) {
 			const index = new TokenFontIndex();
 			this.tokenColors.forEach(r => index.add(r.settings.fontFamily, r.settings.fontSize, r.settings.lineHeight));
@@ -308,6 +341,9 @@ export class ColorThemeData implements IWorkbenchColorTheme {
 	}
 
 	public getTokenStyleMetadata(typeWithLanguage: string, modifiers: string[], defaultLanguage: string, useDefault = true, definitions: TokenStyleDefinitions = {}): ITokenStyle | undefined {
+		if (this.editorTheme) {
+			return this.editorTheme.getTokenStyleMetadata(typeWithLanguage, modifiers, defaultLanguage, useDefault, definitions);
+		}
 		const { type, language } = parseClassifierString(typeWithLanguage, defaultLanguage);
 		const style = this.getTokenStyle(type, modifiers, language, useDefault, definitions);
 		if (!style) {
@@ -324,6 +360,9 @@ export class ColorThemeData implements IWorkbenchColorTheme {
 	}
 
 	public getTokenStylingRuleScope(rule: SemanticTokenRule): 'setting' | 'theme' | undefined {
+		if (this.editorTheme) {
+			return this.editorTheme.getTokenStylingRuleScope(rule);
+		}
 		if (this.customSemanticTokenRules.indexOf(rule) !== -1) {
 			return 'setting';
 		}
@@ -339,6 +378,9 @@ export class ColorThemeData implements IWorkbenchColorTheme {
 
 
 	public resolveScopes(scopes: ProbeScope[], definitions?: TextMateThemingRuleDefinitions): TokenStyle | undefined {
+		if (this.editorTheme) {
+			return this.editorTheme.resolveScopes(scopes, definitions);
+		}
 
 		if (!this.themeTokenScopeMatchers) {
 			this.themeTokenScopeMatchers = this.themeTokenColors.map(getScopeMatcher);
@@ -397,6 +439,9 @@ export class ColorThemeData implements IWorkbenchColorTheme {
 		if (customColor instanceof Color) {
 			return true;
 		}
+		if (customColor === undefined /* !== DEFAULT_COLOR_CONFIG_VALUE */ && this.editorTheme && isEditorColor(colorId)) {
+			return this.editorTheme.defines(colorId);
+		}
 		return customColor === undefined /* !== DEFAULT_COLOR_CONFIG_VALUE */ && this.colorMap.hasOwnProperty(colorId);
 	}
 
@@ -425,6 +470,26 @@ export class ColorThemeData implements IWorkbenchColorTheme {
 		}
 		const theme = Object.assign(new ColorThemeData(this.id, this.label, this.settingsId), this);
 		theme.setTransientColors(undefined);
+		return theme;
+	}
+
+	/** AgenteCode: sets the theme the code editors use for their colors and syntax (undefined: follow this theme). */
+	public setEditorTheme(theme: ColorThemeData | undefined): void {
+		this.editorTheme = theme === this ? undefined : theme;
+	}
+
+	public getEditorTheme(): ColorThemeData | undefined {
+		return this.editorTheme;
+	}
+
+	/** AgenteCode: this theme as the interface (and the webviews) see it, without the separate editor theme. */
+	public getInterfaceTheme(): ColorThemeData {
+		if (!this.editorTheme) {
+			return this;
+		}
+		const theme = Object.assign(new ColorThemeData(this.id, this.label, this.settingsId), this);
+		theme.editorTheme = undefined;
+		theme.clearCaches();
 		return theme;
 	}
 

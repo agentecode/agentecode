@@ -88,6 +88,8 @@ export class WorkbenchThemeService extends Disposable implements IWorkbenchTheme
 	private colorThemingParticipantChangeListener: IDisposable | undefined;
 	private readonly colorThemeSequencer: Sequencer;
 	private readonly colorThemeOverlays = new Set<{ getColors: (theme: IWorkbenchColorTheme) => IColorMap }>();
+	/** AgenteCode: theme used only by the code editors; `undefined` when they follow the color theme. */
+	private editorColorTheme: ColorThemeData | undefined;
 
 	private readonly fileIconThemeRegistry: ThemeRegistry<FileIconThemeData>;
 	private currentFileIconTheme: FileIconThemeData;
@@ -249,6 +251,7 @@ export class WorkbenchThemeService extends Disposable implements IWorkbenchTheme
 
 		this.migrateColorThemeSettings();
 		const result = await Promise.all([initializeColorTheme(), initializeFileIconTheme(), initializeProductIconTheme()]);
+		await this.restoreEditorColorTheme();
 		await this.showNewDefaultThemeNotification(themePreviousSettingsId);
 		return result;
 	}
@@ -350,6 +353,9 @@ export class WorkbenchThemeService extends Disposable implements IWorkbenchTheme
 			) {
 				this.restoreColorTheme();
 			}
+			if (e.affectsConfiguration(ThemeSettings.EDITOR_THEME)) {
+				this.restoreEditorColorTheme();
+			}
 			if (e.affectsConfiguration(ThemeSettings.FILE_ICON_THEME)) {
 				this.restoreFileIconTheme();
 			}
@@ -371,6 +377,7 @@ export class WorkbenchThemeService extends Disposable implements IWorkbenchTheme
 					hasColorChanges = true;
 				}
 				if (hasColorChanges) {
+					this.editorColorTheme?.setCustomizations(this.settings);
 					this.applyColorThemeOverlays(this.currentColorTheme);
 					this.updateDynamicCSSRules(this.currentColorTheme);
 					this.onColorThemeChange.fire(this.currentColorTheme);
@@ -386,6 +393,7 @@ export class WorkbenchThemeService extends Disposable implements IWorkbenchTheme
 		// update settings schema setting for theme specific settings
 		this._register(this.colorThemeRegistry.onDidChange(async event => {
 			updateColorThemeConfigurationSchemas(event.themes);
+			this.restoreEditorColorTheme();
 			if (await this.restoreColorTheme()) { // checks if theme from settings exists and is set
 				// restore theme
 				if (this.currentColorTheme.settingsId === ThemeSettingDefaults.COLOR_THEME_DARK && !types.isUndefined(prevColorId) && await this.colorThemeRegistry.findThemeById(prevColorId)) {
@@ -502,6 +510,55 @@ export class WorkbenchThemeService extends Disposable implements IWorkbenchTheme
 		});
 	}
 
+	public getInterfaceColorTheme(): IWorkbenchColorTheme {
+		return this.currentColorTheme.getInterfaceTheme();
+	}
+
+	public getEditorColorTheme(): IWorkbenchColorTheme | undefined {
+		return this.editorColorTheme;
+	}
+
+	public setEditorColorTheme(themeIdOrTheme: string | undefined | IWorkbenchColorTheme, settingsTarget: ThemeSettingTarget): Promise<IWorkbenchColorTheme | undefined> {
+		return this.colorThemeSequencer.queue(async () => {
+			let themeData: ColorThemeData | undefined;
+			if (themeIdOrTheme) {
+				const themeId = types.isString(themeIdOrTheme) ? validateThemeId(themeIdOrTheme) : themeIdOrTheme.id;
+				themeData = this.colorThemeRegistry.findThemeById(themeId);
+				if (!themeData) {
+					return undefined;
+				}
+				await themeData.ensureLoaded(this.extensionResourceLoaderService);
+				themeData.setCustomizations(this.settings);
+			}
+			this.applyEditorColorTheme(themeData);
+			await this.settings.setEditorTheme(themeData, settingsTarget);
+			return themeData;
+		});
+	}
+
+	/** Reads the editor theme from the settings and applies it; themes from extensions may only show up later, so this runs again when the registry changes. */
+	private restoreEditorColorTheme(): Promise<void> {
+		return this.colorThemeSequencer.queue(async () => {
+			const settingsId = this.settings.editorTheme;
+			const theme = settingsId ? this.colorThemeRegistry.findThemeBySettingsId(settingsId) : undefined;
+			if (theme === this.editorColorTheme && (!theme || theme.isLoaded)) {
+				return;
+			}
+			if (theme) {
+				await theme.ensureLoaded(this.extensionResourceLoaderService);
+				theme.setCustomizations(this.settings);
+			}
+			this.applyEditorColorTheme(theme);
+		});
+	}
+
+	private applyEditorColorTheme(theme: ColorThemeData | undefined): void {
+		this.editorColorTheme = theme;
+		this.currentColorTheme.setEditorTheme(theme);
+		this.updateDynamicCSSRules(this.currentColorTheme);
+		this.onColorThemeChange.fire(this.currentColorTheme);
+	}
+
 	public getBaseColorTheme(): IWorkbenchColorTheme {
 		return this.currentColorTheme.getBaseTheme();
 	}
@@ -603,6 +660,7 @@ export class WorkbenchThemeService extends Disposable implements IWorkbenchTheme
 	}
 
 	private applyTheme(newTheme: ColorThemeData, settingsTarget: ThemeSettingTarget, silent = false): Promise<IWorkbenchColorTheme | null> {
+		newTheme.setEditorTheme(this.editorColorTheme);
 		this.applyColorThemeOverlays(newTheme);
 		this.updateDynamicCSSRules(newTheme);
 

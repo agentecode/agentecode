@@ -23,6 +23,7 @@ export const themeScopeRegex = /\[(.+?)\]/g;
 
 export enum ThemeSettings {
 	COLOR_THEME = 'workbench.colorTheme',
+	EDITOR_THEME = 'agentecode.editorTheme', // AgenteCode: theme used only by the code editors ('' = same as the color theme)
 	FILE_ICON_THEME = 'workbench.iconTheme',
 	PRODUCT_ICON_THEME = 'workbench.productIconTheme',
 	COLOR_CUSTOMIZATIONS = 'workbench.colorCustomizations',
@@ -399,6 +400,12 @@ export interface IWorkbenchThemeService extends IThemeService {
 	getColorTheme(): IWorkbenchColorTheme;
 	/** Returns the selected theme and user customizations without window-local overlays. */
 	getBaseColorTheme(): IWorkbenchColorTheme;
+	/** AgenteCode: the color theme as the interface and webviews see it, without the separate editor theme. */
+	getInterfaceColorTheme(): IWorkbenchColorTheme;
+	/** AgenteCode: the theme the code editors use, or `undefined` when they follow the color theme. */
+	getEditorColorTheme(): IWorkbenchColorTheme | undefined;
+	/** AgenteCode: sets the theme used only by the code editors; `undefined` makes them follow the color theme again. */
+	setEditorColorTheme(themeIdOrTheme: string | undefined | IWorkbenchColorTheme, settingsTarget: ThemeSettingTarget): Promise<IWorkbenchColorTheme | undefined>;
 	getColorThemes(): Promise<IWorkbenchColorTheme[]>;
 	getMarketplaceColorThemes(publisher: string, name: string, version: string): Promise<IWorkbenchColorTheme[]>;
 	readonly onDidColorThemeChange: Event<IWorkbenchColorTheme>;
