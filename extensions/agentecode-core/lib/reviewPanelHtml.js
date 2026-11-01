@@ -111,6 +111,11 @@ function render(state) {
 		if (item.dir) { row.appendChild(el('span', 'dir', item.dir)); }
 		if (item.status === 'added') { row.appendChild(el('span', 'tag new', L.tagNew)); }
 		if (item.status === 'deleted') { row.appendChild(el('span', 'tag gone', L.tagDeleted)); }
+		if (item.sensitive) {
+			const warn = el('span', 'tag warn', L.tagSensitive);
+			warn.title = item.sensitive;
+			row.appendChild(warn);
+		}
 		if (item.source === 'terminal') {
 			const origin = el('span', 'tag term', item.approx ? 'TERMINAL ~' : 'TERMINAL');
 			origin.title = item.approx ? L.terminalApprox : L.terminalExact;
@@ -190,6 +195,7 @@ button{font:inherit;cursor:pointer;color:inherit;background:transparent;border:0
 .tag.new{background:rgba(46,160,67,.25);color:#56d364}
 .tag.gone{background:rgba(248,81,73,.25);color:#ff7b72}
 .tag.term{background:rgba(210,153,34,.25);color:#e3b341}
+.tag.warn{background:rgba(219,109,40,.28);color:#ffa657}
 .spacer{flex:1}
 .actions{display:none;gap:2px}
 .row:hover .actions,.hunk:hover .actions{display:inline-flex}
@@ -228,6 +234,7 @@ function labelsJson() {
 		showHunks: t('Show the hunks'),
 		tagNew: t('NEW'),
 		tagDeleted: t('DELETED'),
+		tagSensitive: t('SENSITIVE'),
 		terminalApprox: t('Changed outside the agent log (terminal or another tool). Approximate comparison, against the last commit before the conversation.'),
 		terminalExact: t('Changed by a terminal command or another tool (outside the agent log).'),
 		keepTip: t('Keep (mark as reviewed)'),

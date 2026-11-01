@@ -21,6 +21,7 @@ const gs = require('./gitSnapshot');
 const { TurnWatcher } = require('./turnWatcher');
 const { t, getLanguage } = require('./i18n');
 const { computeTerminalChanges } = require('./terminalChanges');
+const { sensitiveKind, sensitiveReason } = require('./sensitivePaths');
 
 const VIEW_ID = 'agentecode.review';
 const PANEL_ID = 'agentecode.reviewPanel';
@@ -110,6 +111,13 @@ function registerReviewView(context) {
 		return folders.length ? folders : session?.cwd ? [session.cwd] : [];
 	};
 	const reviewedMap = () => context.workspaceState.get(REVIEWED_KEY, {});
+	/** Motivo pelo qual o arquivo pede mais atencao na revisao (config, segredos, dependencias...), ou `undefined`. */
+	const sensitiveOf = file => {
+		const root = roots().find(r => isInsideAny(file, [r]));
+		const kind = sensitiveKind(root ? path.relative(root, file) : file, vscode.workspace.getConfiguration('agentecode.review').get('sensitivePaths', []));
+		return kind ? sensitiveReason(kind) : undefined;
+	};
+	const sensitiveIcon = () => new vscode.ThemeIcon('warning', new vscode.ThemeColor('list.warningForeground'));
 
 	// --- Arvore na barra lateral das sessoes ---
 	const view = vscode.window.createTreeView(VIEW_ID, {
@@ -122,10 +130,11 @@ function registerReviewView(context) {
 				const root = roots().find(r => isInsideAny(element.file, [r]));
 				const relDir = root ? path.dirname(path.relative(root, element.file)) : path.dirname(element.file);
 				const counts = element.added === null ? '' : ` +${element.added} −${element.removed}`;
-				item.description = `${relDir === '.' ? '' : `${relDir}  `}${statusText(element.status)}${counts}${element.source === 'terminal' ? ' · terminal' : ''}`;
-				item.iconPath = new vscode.ThemeIcon(info.icon, new vscode.ThemeColor(info.color));
+				const sensitive = sensitiveOf(element.file);
+				item.description = `${relDir === '.' ? '' : `${relDir}  `}${statusText(element.status)}${counts}${element.source === 'terminal' ? ' · terminal' : ''}${sensitive ? ` · ${t('sensitive')}` : ''}`;
+				item.iconPath = sensitive ? sensitiveIcon() : new vscode.ThemeIcon(info.icon, new vscode.ThemeColor(info.color));
 				item.contextValue = 'reviewFile';
-				item.tooltip = `${element.file}\n${statusText(element.status)}${counts}`;
+				item.tooltip = `${element.file}\n${statusText(element.status)}${counts}${sensitive ? `\n${t('Sensitive file')}: ${sensitive}` : ''}`;
 				item.command = { command: 'agentecode.review.open', title: t('View diff'), arguments: [element] };
 				return item;
 			}
@@ -308,6 +317,7 @@ function registerReviewView(context) {
 				badge: languageBadge(item.file),
 				source: item.source,
 				approx: Boolean(item.approx),
+				sensitive: sensitiveOf(item.file),
 				reviewed: !pendingKeys.has(key),
 				expanded: expanded.has(key)
 			};
@@ -661,7 +671,9 @@ function registerReviewView(context) {
 							console.warn('AgenteCode: mudanças por terminal indisponíveis', error && error.message);
 						}
 					}
-					const allItems = await dropCommitted([...computed.items, ...terminal.items].sort((a, b) => a.file.localeCompare(b.file)));
+					// Os sensiveis vao para o topo, para nao passarem batido na revisao
+					const sensitiveRank = item => (sensitiveOf(item.file) ? 0 : 1);
+					const allItems = await dropCommitted([...computed.items, ...terminal.items].sort((a, b) => sensitiveRank(a) - sensitiveRank(b) || a.file.localeCompare(b.file)));
 					const { pending, hidden: hiddenCount } = await splitReviewed(allItems, reviewedMap());
 					review = { ...computed, items: allItems, all: allItems, pending, terminalMode: terminal.mode, terminalTruncated: terminal.truncated };
 					hidden = hiddenCount;
@@ -685,15 +697,19 @@ function registerReviewView(context) {
 				view.description = pendingNow.length ? t('{0} file(s) +{1} −{2}', pendingNow.length, sum('added'), sum('removed')) : undefined;
 				view.badge = pendingNow.length ? { value: pendingNow.length, tooltip: t('{0} file(s) to review', pendingNow.length) } : undefined;
 				scm.count = pendingNow.length;
-				scmGroup.resourceStates = pendingNow.map(item => ({
-					resourceUri: vscode.Uri.file(item.file),
-					decorations: {
-						tooltip: `${statusText(item.status)}${item.added === null ? '' : ` +${item.added} −${item.removed}`}`,
-						strikeThrough: item.status === 'deleted'
-					},
-					command: { command: 'agentecode.review.open', title: t('View diff'), arguments: [item] },
-					contextValue: 'reviewFile'
-				}));
+				scmGroup.resourceStates = pendingNow.map(item => {
+					const sensitive = sensitiveOf(item.file);
+					return {
+						resourceUri: vscode.Uri.file(item.file),
+						decorations: {
+							tooltip: `${statusText(item.status)}${item.added === null ? '' : ` +${item.added} −${item.removed}`}${sensitive ? `\n${t('Sensitive file')}: ${sensitive}` : ''}`,
+							strikeThrough: item.status === 'deleted',
+							iconPath: sensitive ? sensitiveIcon() : undefined
+						},
+						command: { command: 'agentecode.review.open', title: t('View diff'), arguments: [item] },
+						contextValue: 'reviewFile'
+					};
+				});
 				decorationEmitter.fire([...previous, ...pendingNow.map(i => i.file)].map(f => vscode.Uri.file(f)));
 				treeEmitter.fire(undefined);
 				lensEmitter.fire();

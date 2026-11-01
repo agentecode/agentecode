@@ -221,3 +221,5 @@ extensions/agentecode-core/lib/terminalChanges.js
 extensions/agentecode-core/test/gitSnapshot.test.js
 extensions/agentecode-core/test/turnWatcher.test.js
 extensions/agentecode-core/test/terminalChanges.test.js
+extensions/agentecode-core/lib/sensitivePaths.js
+extensions/agentecode-core/test/sensitivePaths.test.js

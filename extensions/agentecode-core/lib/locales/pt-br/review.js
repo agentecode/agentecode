@@ -19,6 +19,15 @@ module.exports = {
 	'before "{0}"': 'antes de "{0}"',
 	'Changed by the agent and not yet reviewed': 'Alterado pelo agente e ainda não revisado',
 
+	// Arquivos sensiveis
+	'sensitive': 'sensível',
+	'SENSITIVE': 'SENSÍVEL',
+	'Sensitive file': 'Arquivo sensível',
+	'Can run commands on its own (editor tasks, CI, build scripts or git hooks).': 'Pode executar comandos sozinho (tarefas do editor, CI, scripts de build ou hooks do git).',
+	'May hold passwords or keys.': 'Pode conter senhas ou chaves.',
+	'Changes which packages the project uses.': 'Muda quais pacotes o projeto usa.',
+	'Marked as sensitive in your settings.': 'Marcado como sensível nas suas configurações.',
+
 	// CodeLens e dicas no editor
 	'Changed by the agent in this conversation.': 'Alterado pelo agente nesta conversa.',
 	'Alt+Y: keep this hunk': 'Alt+Y: manter este trecho',

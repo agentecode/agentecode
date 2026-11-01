@@ -2,6 +2,14 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.18 - 01/11/2026
+
+Sensitive files get flagged in the agent changes, and the Git branch is back in the status bar.
+
+- **Sensitive files in "Agent changes":** files that can run commands on their own (`.vscode/tasks.json`, CI workflows, `package.json`, build scripts, git hooks), files that may hold secrets (`.env*`, keys, `appsettings.*.json`) and package files (`package-lock.json`, `*.csproj`) now show a `SENSITIVE` tag in the review panel and a warning icon in the lists, with the reason on hover. They also move to the top of the list so they do not slip past the review. Nothing is blocked: it is a hint to look closer.
+- **Your own patterns:** the new setting `agentecode.review.sensitivePaths` takes extra patterns to flag, such as `db/migrations/**` or `web.config`.
+- **Git branch in the status bar:** on startup the "Agent changes" source control could take the focus before Git, which hid the branch name at the bottom left. Git now keeps the focus, so the branch shows as in stock VS Code.
+
 ## v1.0.17 - 28/10/2026
 
 Search in the Markdown preview now actually finds text.

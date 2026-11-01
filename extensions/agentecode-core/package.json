@@ -2,7 +2,7 @@
   "name": "agentecode-core",
   "displayName": "AgenteCode Core",
   "description": "%description%",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "publisher": "agentecode",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -464,9 +464,17 @@
           "description": "%config.review.inlineHint.description%"
         },
         "agentecode.review.codeLens": {
-          "type": "boolean",
-          "default": true,
-          "description": "%config.review.codeLens.description%"
+        	"type": "boolean",
+        	"default": true,
+        	"description": "%config.review.codeLens.description%"
+        },
+        "agentecode.review.sensitivePaths": {
+        	"type": "array",
+        	"items": {
+        		"type": "string"
+        	},
+        	"default": [],
+        	"description": "%config.review.sensitivePaths.description%"
         },
         "agentecode.sync.syncClaudeConfig": {
           "type": "boolean",

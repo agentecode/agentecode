@@ -419,7 +419,8 @@ export class SCMViewService implements ISCMViewService {
 		}
 
 		// Focus repository if nothing is focused
-		if (!this._repositories.find(r => r.focused)) {
+		// AgenteCode: the "Agent changes" provider has no status bar commands, so if it took the focus first the Git branch would vanish from the status bar
+		if (!this._repositories.find(r => r.focused) && repository.provider.providerId !== 'agentecode-review') {
 			this.focus(repository);
 		}
 	}
