@@ -7,6 +7,8 @@
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const { languageBadge } = require('../lib/reviewPanelLib');
 const { renderPanelHtml, CLIENT_SCRIPT } = require('../lib/reviewPanelHtml');
@@ -44,5 +46,22 @@ describe('Tela Alteracoes do agente (webview)', () => {
 
 	test('o script nunca insere texto como HTML', () => {
 		assert.ok(!/innerHTML|outerHTML|insertAdjacentHTML|document\.write/.test(CLIENT_SCRIPT));
+	});
+
+	test('o clique direito nas linhas diz de qual arquivo se trata e o package.json liga o menu a essa mesma secao', () => {
+		const section = 'agentecodeReviewRow';
+		assert.ok(CLIENT_SCRIPT.includes('data-vscode-context') && CLIENT_SCRIPT.includes(section));
+		assert.ok(!CLIENT_SCRIPT.includes('preventDefaultContextMenuItems'), 'o menu padrao (Cut, Copy, Paste) continua junto dos itens novos');
+		const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+		const menu = manifest.contributes.menus['webview/context'];
+		assert.deepEqual(menu.map(entry => entry.command), ['agentecode.review.openFileFromPanel', 'agentecode.review.openFromPanel']);
+		assert.ok(menu.every(entry => entry.when === `webviewSection == '${section}'`));
+		const titles = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.nls.json'), 'utf8'));
+		for (const command of ['agentecode.review.openFile', 'agentecode.review.openFileFromPanel', 'agentecode.review.openFromPanel']) {
+			assert.ok(manifest.contributes.commands.some(entry => entry.command === command), command);
+		}
+		assert.equal(titles['command.review.openFileFromPanel.title'], 'Open File in Editor (Ctrl+Click)');
+		assert.equal(titles['command.review.openFromPanel.title'], 'View Diff (Click)');
+		assert.ok(/ctrlKey[^;]*openFile/.test(CLIENT_SCRIPT), 'Ctrl+clique no nome abre o arquivo');
 	});
 });

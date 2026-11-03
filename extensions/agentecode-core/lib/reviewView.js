@@ -377,6 +377,11 @@ function registerReviewView(context) {
 					await vscode.commands.executeCommand('agentecode.review.open', item);
 				}
 				break;
+			case 'openFile':
+				if (item) {
+					await vscode.commands.executeCommand('agentecode.review.openFile', item);
+				}
+				break;
 			case 'toggle':
 				if (item) {
 					const key = keyOf(item.file);
@@ -773,7 +778,8 @@ function registerReviewView(context) {
 	};
 
 	/** Aceita itens da arvore (com `file`) e estados do painel de codigo-fonte (com `resourceUri`). */
-	const asItem = e => (e?.file ? e : e?.resourceUri ? pendingByKey.get(keyOf(e.resourceUri.fsPath)) : undefined);
+	// O menu do clique direito na tela manda so `{ file }`: busca o item completo (estado, copia de antes...)
+	const asItem = e => (e?.file ? (itemOf(e.file) ?? e) : e?.resourceUri ? pendingByKey.get(keyOf(e.resourceUri.fsPath)) : undefined);
 	const targetsOf = (item, selection) => {
 		const chosen = selection?.length ? selection : item ? [item] : view.selection;
 		return chosen.map(asItem).filter(Boolean);
@@ -795,6 +801,23 @@ function registerReviewView(context) {
 			} else {
 				await vscode.commands.executeCommand('vscode.open', backupUri(session.id, item.file, item.backup, item.source === 'terminal'), { preview: true }, `${path.basename(item.file)} (${statusText('deleted')})`);
 			}
+		}),
+
+		// Itens do menu do clique direito na tela: mesmos comandos, com a dica do gesto no titulo
+		vscode.commands.registerCommand('agentecode.review.openFromPanel', raw => vscode.commands.executeCommand('agentecode.review.open', raw)),
+		vscode.commands.registerCommand('agentecode.review.openFileFromPanel', raw => vscode.commands.executeCommand('agentecode.review.openFile', raw)),
+
+		// Abre o arquivo no editor (o `open` abre a diferenca)
+		vscode.commands.registerCommand('agentecode.review.openFile', async raw => {
+			const item = asItem(raw);
+			if (!item) {
+				return;
+			}
+			if (item.status === 'deleted') {
+				void vscode.window.showInformationMessage(t('The agent deleted this file, so there is nothing to open. Use "View Diff" to see what was removed.'));
+				return;
+			}
+			await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(item.file), { preview: false });
 		}),
 
 		vscode.commands.registerCommand('agentecode.review.keep', async (item, selection) => {

@@ -19,6 +19,10 @@ module.exports = {
 	'before "{0}"': 'antes de "{0}"',
 	'Changed by the agent and not yet reviewed': 'Alterado pelo agente e ainda não revisado',
 
+	// Abrir arquivo (clique direito e Ctrl+clique)
+	'Click: view the difference · Ctrl+click: open the file': 'Clique: ver a diferença · Ctrl+clique: abrir o arquivo',
+	'The agent deleted this file, so there is nothing to open. Use "View Diff" to see what was removed.': 'O agente apagou este arquivo, então não há o que abrir. Use "Ver diferença" para ver o que foi removido.',
+
 	// Arquivos sensiveis
 	'sensitive': 'sensível',
 	'SENSITIVE': 'SENSÍVEL',

@@ -2,7 +2,7 @@
   "name": "agentecode-core",
   "displayName": "AgenteCode Core",
   "description": "%description%",
-  "version": "1.0.19",
+  "version": "1.0.20",
   "publisher": "agentecode",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -105,6 +105,21 @@
       {
         "command": "agentecode.review.open",
         "title": "%command.review.open.title%",
+        "category": "AgenteCode"
+      },
+      {
+        "command": "agentecode.review.openFile",
+        "title": "%command.review.openFile.title%",
+        "category": "AgenteCode"
+      },
+      {
+        "command": "agentecode.review.openFromPanel",
+        "title": "%command.review.openFromPanel.title%",
+        "category": "AgenteCode"
+      },
+      {
+        "command": "agentecode.review.openFileFromPanel",
+        "title": "%command.review.openFileFromPanel.title%",
         "category": "AgenteCode"
       },
       {
@@ -543,6 +558,18 @@
           "when": "false"
         },
         {
+          "command": "agentecode.review.openFile",
+          "when": "false"
+        },
+        {
+          "command": "agentecode.review.openFromPanel",
+          "when": "false"
+        },
+        {
+          "command": "agentecode.review.openFileFromPanel",
+          "when": "false"
+        },
+        {
           "command": "agentecode.review.keep",
           "when": "false"
         },
@@ -587,6 +614,18 @@
           "when": "agentecode.usage.enabled"
         }
       ],
+      "webview/context": [
+        {
+          "command": "agentecode.review.openFileFromPanel",
+          "when": "webviewSection == 'agentecodeReviewRow'",
+          "group": "navigation@1"
+        },
+        {
+          "command": "agentecode.review.openFromPanel",
+          "when": "webviewSection == 'agentecodeReviewRow'",
+          "group": "navigation@2"
+        }
+      ],
       "scm/title": [
         {
           "command": "agentecode.review.chooseBase",
@@ -615,6 +654,11 @@
         }
       ],
       "scm/resourceState/context": [
+        {
+          "command": "agentecode.review.openFile",
+          "when": "scmProvider == agentecode-review && scmResourceGroup == changes",
+          "group": "navigation@1"
+        },
         {
           "command": "agentecode.review.keep",
           "when": "scmProvider == agentecode-review && scmResourceGroup == changes",
@@ -684,6 +728,11 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "agentecode.review.openFile",
+          "when": "view == agentecode.review && viewItem == reviewFile",
+          "group": "navigation@1"
+        },
         {
           "command": "agentecode.review.keep",
           "when": "view == agentecode.review && viewItem == reviewFile",

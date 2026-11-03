@@ -105,8 +105,9 @@ function render(state) {
 		badge.style.color = item.badge.color;
 		row.appendChild(badge);
 		const name = el('span', 'name', item.name);
-		name.title = item.file;
-		name.addEventListener('click', () => send({ type: 'open', file: item.file }));
+		name.title = item.file + '\\n' + L.nameTip;
+		// clique abre a diferenca; Ctrl, Cmd ou Shift + clique abre o proprio arquivo
+		name.addEventListener('click', event => send({ type: (event.ctrlKey || event.metaKey || event.shiftKey) ? 'openFile' : 'open', file: item.file }));
 		row.appendChild(name);
 		if (item.dir) { row.appendChild(el('span', 'dir', item.dir)); }
 		if (item.status === 'added') { row.appendChild(el('span', 'tag new', L.tagNew)); }
@@ -128,6 +129,7 @@ function render(state) {
 		actions.appendChild(button('icon undo', '\\u21b6', L.revertTip, () => send({ type: 'revert', file: item.file })));
 		row.appendChild(actions);
 		row.addEventListener('dblclick', () => send({ type: 'open', file: item.file }));
+		row.setAttribute('data-vscode-context', JSON.stringify({ webviewSection: 'agentecodeReviewRow', file: item.file }));
 		list.appendChild(row);
 
 		if (item.expanded) {
@@ -144,6 +146,7 @@ function render(state) {
 				hunkActions.appendChild(button('icon undo', '\\u21b6', L.undoHunkTip, () => send({ type: 'undoHunk', file: item.file, key: hunk.key })));
 				line.appendChild(hunkActions);
 				line.addEventListener('click', () => send({ type: 'goto', file: item.file, line: hunk.line }));
+				line.setAttribute('data-vscode-context', JSON.stringify({ webviewSection: 'agentecodeReviewRow', file: item.file }));
 				list.appendChild(line);
 			}
 		}
@@ -235,6 +238,7 @@ function labelsJson() {
 		tagNew: t('NEW'),
 		tagDeleted: t('DELETED'),
 		tagSensitive: t('SENSITIVE'),
+		nameTip: t('Click: view the difference · Ctrl+click: open the file'),
 		terminalApprox: t('Changed outside the agent log (terminal or another tool). Approximate comparison, against the last commit before the conversation.'),
 		terminalExact: t('Changed by a terminal command or another tool (outside the agent log).'),
 		keepTip: t('Keep (mark as reviewed)'),

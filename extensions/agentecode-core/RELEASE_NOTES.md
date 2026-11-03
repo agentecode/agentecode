@@ -2,6 +2,13 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.20 - 03/11/2026
+
+Open the real file from the agent changes, not only the diff.
+
+- **Right-click menu in "Agent Changes":** right-clicking a file now offers **Open File in Editor (Ctrl+Click)** and **View Diff (Click)**, above the usual Cut, Copy and Paste. The same **Open File in Editor** entry is also in the right-click menu of the side list and of the Source Control list.
+- **Ctrl+Click on the file name:** a plain click still opens the diff; Ctrl+Click (Cmd on macOS, or Shift+Click) opens the file itself. A file the agent deleted has nothing to open, so the menu points you to View Diff instead.
+
 ## v1.0.19 - 01/11/2026
 
 A separate theme for the code editors, like Sublime's color scheme.
