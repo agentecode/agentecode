@@ -116,4 +116,29 @@ function revertHunkInText(afterText, hunk) {
 	return lines.join(eol) + (lines.length && endsWithNewline ? eol : '');
 }
 
-module.exports = { splitLines, computeHunks, revertHunkInText };
+/**
+ * Dos trechos do agente, os que ainda nao estao no ultimo commit: os que tocam algum trecho em que o arquivo atual difere do commit.
+ * Os dois conjuntos de trechos usam as posicoes do texto atual.
+ * @param {Hunk[]} agentHunks trechos entre a copia de antes do agente e o texto atual
+ * @param {Hunk[]} headHunks trechos entre o ultimo commit e o texto atual
+ * @returns {Hunk[]}
+ */
+function hunksNotInCommit(agentHunks, headHunks) {
+	const touches = (h, g) => {
+		const hEmpty = h.modEnd <= h.modStart;
+		const gEmpty = g.modEnd <= g.modStart;
+		if (hEmpty && gEmpty) {
+			return h.modStart === g.modStart;
+		}
+		if (hEmpty) {
+			return g.modStart <= h.modStart && h.modStart <= g.modEnd;
+		}
+		if (gEmpty) {
+			return h.modStart <= g.modStart && g.modStart <= h.modEnd;
+		}
+		return h.modStart < g.modEnd && g.modStart < h.modEnd;
+	};
+	return agentHunks.filter(h => headHunks.some(g => touches(h, g)));
+}
+
+module.exports = { splitLines, computeHunks, revertHunkInText, hunksNotInCommit };

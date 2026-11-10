@@ -57,6 +57,9 @@
     "list.inactiveSelectionBackground": "#353941",
     "list.inactiveSelectionForeground": "#abb2bf",
     "minimapGutter.addedBackground": "#107c10",
+    "minimapSlider.activeBackground": "#00000080",
+    "minimapSlider.background": "#0000004d",
+    "minimapSlider.hoverBackground": "#00000066",
     "panel.background": "#282c34",
     "panelTitle.activeForeground": "#cecece",
     "panelTitle.inactiveForeground": "#bdbdbd",
@@ -325,6 +328,130 @@
       "settings": {
         "foreground": "#e06c75"
       }
+    },
+    {
+      "name": "HTML element name",
+      "scope": [
+        "entity.name.tag.html",
+        "entity.name.tag.razor",
+        "entity.name.tag"
+      ],
+      "settings": {
+        "foreground": "#e06c75"
+      }
+    },
+    {
+      "name": "HTML tag delimiter",
+      "scope": [
+        "punctuation.definition.tag.begin.html",
+        "punctuation.definition.tag.end.html",
+        "punctuation.definition.tag.html"
+      ],
+      "settings": {
+        "foreground": "#bbbbbb"
+      }
+    },
+    {
+      "name": "HTML attribute value",
+      "scope": [
+        "string.quoted.double.html",
+        "string.quoted.single.html",
+        "punctuation.definition.string.begin.html",
+        "punctuation.definition.string.end.html"
+      ],
+      "settings": {
+        "foreground": "#98c379"
+      }
+    },
+    {
+      "name": "HTML operator",
+      "scope": [
+        "punctuation.separator.key-value.html"
+      ],
+      "settings": {
+        "foreground": "#56b6c2"
+      }
+    },
+    {
+      "name": "Razor component",
+      "scope": [
+        "support.class.component.razor"
+      ],
+      "settings": {
+        "foreground": "#e5c07b"
+      }
+    },
+    {
+      "name": "Razor directives",
+      "scope": [
+        "keyword.control.razor.directive.attribute.name",
+        "keyword.control.razor.directive.codeblock.open",
+        "keyword.control.razor.directive.codeblock.close",
+        "keyword.control.cshtml",
+        "meta.directive keyword"
+      ],
+      "settings": {
+        "foreground": "#c678dd"
+      }
+    },
+    {
+      "name": "Razor transition",
+      "scope": [
+        "keyword.control.razor",
+        "keyword.control.razor.transition"
+      ],
+      "settings": {
+        "foreground": "#c678dd"
+      }
+    },
+    {
+      "name": "Razor comment",
+      "scope": [
+        "comment.block.razor",
+        "keyword.control.razor.comment.star"
+      ],
+      "settings": {
+        "foreground": "#7f848e"
+      }
+    },
+    {
+      "name": "Razor tags (aproximacao dos componentes do VS)",
+      "scope": [
+        "text.html.razor entity.name.tag.html",
+        "text.html.razor support.class.component.razor"
+      ],
+      "settings": {
+        "foreground": "#e5c07b"
+      }
+    },
+    {
+      "name": "Razor tag delimiters (aproximacao dos componentes do VS)",
+      "scope": [
+        "text.html.razor punctuation.definition.tag.begin.html",
+        "text.html.razor punctuation.definition.tag.end.html"
+      ],
+      "settings": {
+        "foreground": "#e5c07b"
+      }
+    },
+    {
+      "name": "Razor component parameters in italic (como no VS)",
+      "scope": [
+        "text.html.razor meta.attribute.unrecognized entity.other.attribute-name.html"
+      ],
+      "settings": {
+        "fontStyle": "italic"
+      }
+    },
+    {
+      "name": "Razor components without namespace in italic (como no VS)",
+      "scope": [
+        "text.html.razor support.class.component.razor"
+      ],
+      "settings": {
+        "foreground": "#e5c07b",
+        "fontStyle": "italic"
+      }
     }
   ],
   "semanticHighlighting": true,
@@ -368,6 +495,34 @@
     "regexText": "#d69d85",
     "regexSelfEscapedCharacter": "#d69d85",
     "regexOtherEscape": "#ffd68f",
-    "stringEscapeCharacter": "#ffd68f"
+    "stringEscapeCharacter": "#ffd68f",
+    "razorComponentElement": {
+      "foreground": "#e5c07b",
+      "italic": true
+    },
+    "razorComponentAttribute": {
+      "foreground": "#e5c07b",
+      "italic": true
+    },
+    "razorTagHelperElement": {
+      "foreground": "#e06c75"
+    },
+    "razorTagHelperAttribute": {
+      "foreground": "#e06c75"
+    },
+    "razorDirective": "#c678dd",
+    "razorDirectiveAttribute": "#c678dd",
+    "razorTransition": "#c678dd",
+    "razorComment": "#7f848e",
+    "razorCommentTransition": "#7f848e",
+    "razorCommentStar": "#7f848e",
+    "markupElement": "#e06c75",
+    "markupAttribute": "#d19a66",
+    "markupAttributeQuote": "#98c379",
+    "markupAttributeValue": "#98c379",
+    "markupOperator": "#56b6c2",
+    "markupTagDelimiter": "#bbbbbb",
+    "markupComment": "#7f848e",
+    "markupCommentPunctuation": "#7f848e"
   }
 }

@@ -2,6 +2,14 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.23 - 10/11/2026
+
+Agent changes stop showing what you already committed, and the 2026 themes get closer to Visual Studio on Razor files.
+
+- **Committed changes leave "Agent Changes":** each hunk is now compared with your last commit. What is already committed counts as accepted and disappears from the list, the margin marks and the Keep/Undo buttons, so you only see what is still pending. A file that differs from the commit only where the agent did not touch is dropped too.
+- **Razor and Blazor in the 2026 themes:** HTML tags, attributes and values use the Visual Studio colors, component tags are yellow, and component parameters (`Model`, `Label`, `Class`...) are in italic.
+- **Minimap view box:** the 2026 themes draw the visible area of the minimap as a dark box. Turn it on all the time with `editor.minimap.showSlider` set to `always`.
+
 ## v1.0.22 - 10/11/2026
 
 A new theme that matches the Visual Studio look, and a cleaner code style.

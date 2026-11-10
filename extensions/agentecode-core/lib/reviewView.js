@@ -9,7 +9,7 @@ const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
 const { computeReview, splitReviewed, fingerprint, listBases } = require('./review');
-const { computeHunks, revertHunkInText } = require('./reviewHunks');
+const { computeHunks, revertHunkInText, hunksNotInCommit } = require('./reviewHunks');
 const { languageBadge } = require('./reviewPanelLib');
 const { renderPanelHtml } = require('./reviewPanelHtml');
 const { isInsideAny, BACKUP_NAME } = require('./checkpoints');
@@ -181,10 +181,47 @@ function registerReviewView(context) {
 		return text;
 	};
 
-	/** Trechos ainda nao mantidos de um arquivo, comparando o texto atual do editor com a copia de antes. */
+	/** Texto do arquivo no ultimo commit (`null` fora do git ou se o arquivo nao esta no commit); guardado por poucos segundos. */
+	const headTexts = new Map();
+	const headRoots = new Map();
+	const HEAD_TEXT_TTL = 3000;
+	const headTextOf = async file => {
+		const key = keyOf(file);
+		const cached = headTexts.get(key);
+		if (cached && Date.now() - cached.at < HEAD_TEXT_TTL) {
+			return cached.text;
+		}
+		let text = null;
+		try {
+			const dir = path.dirname(file);
+			let root = headRoots.get(dir);
+			if (root === undefined) {
+				root = await gs.repoRoot(dir);
+				headRoots.set(dir, root);
+			}
+			if (root) {
+				const blob = await gs.blobAt(root, 'HEAD', path.relative(root, file).split(path.sep).join('/'));
+				text = blob ? blob.toString('utf8') : null;
+			}
+		} catch {
+			text = null;
+		}
+		headTexts.set(key, { at: Date.now(), text });
+		return text;
+	};
+
+	/**
+	 * Trechos ainda nao mantidos de um arquivo, comparando o texto atual do editor com a copia de antes.
+	 * O que ja esta no ultimo commit conta como aceito e sai da lista.
+	 */
 	const pendingHunks = async (item, text) => {
 		const kept = new Set(keptMap()[item.file] ?? []);
-		return computeHunks(await readBackupText(item), text).filter(h => !kept.has(h.key));
+		const hunks = computeHunks(await readBackupText(item), text).filter(h => !kept.has(h.key));
+		if (!hunks.length) {
+			return hunks;
+		}
+		const head = await headTextOf(item.file);
+		return head === null ? hunks : hunksNotInCommit(hunks, computeHunks(head, text));
 	};
 
 	const lensProvider = {
@@ -657,6 +694,25 @@ function registerReviewView(context) {
 			} catch (error) {
 				console.warn('AgenteCode: não foi possível comparar com o último commit', error && error.message);
 			}
+		}
+		// Arquivo que ainda difere do commit, mas so em trechos que o agente nao mexeu: tambem conta como aceito
+		const rest = items.filter(item => !done.has(item.file) && item.status === 'modified' && item.backup);
+		for (let i = 0; i < rest.length; i += 8) {
+			await Promise.all(rest.slice(i, i + 8).map(async item => {
+				try {
+					const text = await fs.promises.readFile(item.file, 'utf8');
+					const head = text.length > MAX_LENS_CHARS ? null : await headTextOf(item.file);
+					if (head === null) {
+						return;
+					}
+					const agent = computeHunks(await readBackupText(item), text);
+					if (agent.length && !hunksNotInCommit(agent, computeHunks(head, text)).length) {
+						done.add(item.file);
+					}
+				} catch {
+					// sem leitura ou sem git: o arquivo continua na lista
+				}
+			}));
 		}
 		return items.filter(item => !done.has(item.file));
 	}

@@ -8,7 +8,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { computeHunks, revertHunkInText } = require('../lib/reviewHunks');
+const { computeHunks, revertHunkInText, hunksNotInCommit } = require('../lib/reviewHunks');
 
 const shape = hunks => hunks.map(h => [h.modStart, h.modEnd, h.beforeLines, h.afterLines]);
 
@@ -75,5 +75,32 @@ describe('Trechos alterados (hunks)', () => {
 		const [h3] = computeHunks('a\nb\n', 'a\nC\n');
 		assert.equal(h1.key, h2.key);
 		assert.notEqual(h1.key, h3.key);
+	});
+});
+
+describe('Trechos do agente que ja estao no commit', () => {
+	const before = 'a\nb\nc\nd\ne\n';
+	const now = 'a\nB\nc\nD\nE\n';
+
+	test('o que o commit ja tem sai da lista e o que falta commitar fica', () => {
+		// o commit ja tem a troca de b por B; D e E ainda nao foram commitados
+		const head = 'a\nB\nc\nd\ne\n';
+		const pending = hunksNotInCommit(computeHunks(before, now), computeHunks(head, now));
+		assert.deepEqual(shape(pending), [[3, 5, ['d', 'e'], ['D', 'E']]]);
+	});
+
+	test('tudo commitado nao deixa trecho nenhum', () => {
+		assert.deepEqual(hunksNotInCommit(computeHunks(before, now), computeHunks(now, now)), []);
+	});
+
+	test('nada commitado deixa todos os trechos', () => {
+		const agent = computeHunks(before, now);
+		assert.deepEqual(shape(hunksNotInCommit(agent, computeHunks(before, now))), shape(agent));
+	});
+
+	test('linha removida que ainda nao foi commitada continua pendente', () => {
+		const agent = computeHunks('a\nb\nc\n', 'a\nc\n');
+		assert.deepEqual(shape(hunksNotInCommit(agent, computeHunks('a\nb\nc\n', 'a\nc\n'))), shape(agent));
+		assert.deepEqual(hunksNotInCommit(agent, computeHunks('a\nc\n', 'a\nc\n')), []);
 	});
 });
