@@ -58,4 +58,36 @@ function languageBadge(file) {
 	return { text: ext || '?', background: '#6e7681', color: '#ffffff' };
 }
 
-module.exports = { languageBadge };
+/**
+ * Palavras da busca: minusculas, separadas por espaco.
+ * @param {string} text
+ * @returns {string[]}
+ */
+function filterTokens(text) {
+	return String(text || '').toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+/**
+ * O item casa com a busca se TODAS as palavras aparecem no nome, na pasta, no tipo (C#, RAZ...) ou nas etiquetas
+ * (new, modified, deleted, sensitive, terminal).
+ * Esta funcao tambem roda dentro da tela (webview): nao pode depender de nada de fora dela.
+ * @param {{ name?: string, dir?: string, status?: string, sensitive?: string, source?: string, badge?: { text?: string } }} item
+ * @param {string[]} tokens
+ * @returns {boolean}
+ */
+function itemMatchesFilter(item, tokens) {
+	if (!tokens.length) {
+		return true;
+	}
+	const tags = [
+		item.status === 'added' ? 'new' : '',
+		item.status === 'modified' ? 'modified' : '',
+		item.status === 'deleted' ? 'deleted' : '',
+		item.sensitive ? 'sensitive' : '',
+		item.source === 'terminal' ? 'terminal' : ''
+	];
+	const haystack = [item.name, item.dir, item.badge && item.badge.text, ...tags].join(' ').toLowerCase();
+	return tokens.every(word => haystack.includes(word));
+}
+
+module.exports = { languageBadge, filterTokens, itemMatchesFilter };

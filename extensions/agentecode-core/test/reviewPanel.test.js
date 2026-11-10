@@ -10,7 +10,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { languageBadge } = require('../lib/reviewPanelLib');
+const { languageBadge, filterTokens, itemMatchesFilter } = require('../lib/reviewPanelLib');
 const { renderPanelHtml, CLIENT_SCRIPT } = require('../lib/reviewPanelHtml');
 const { setLanguage } = require('../lib/i18n');
 
@@ -65,5 +65,50 @@ describe('Tela Alteracoes do agente (webview)', () => {
 		assert.equal(titles['command.review.openFileFromPanel.title'], 'Open File in Editor (Ctrl+Click)');
 		assert.equal(titles['command.review.openFromPanel.title'], 'View Diff (Click)');
 		assert.ok(/ctrlKey[^;]*openFile/.test(CLIENT_SCRIPT), 'Ctrl+clique no nome abre o arquivo');
+	});
+});
+
+describe('Busca de arquivos na tela', () => {
+	const files = [
+		{ name: 'NaturezaOperacaoForm.razor', dir: 'scr\\Client\\Naturezas', status: 'added', badge: { text: 'RAZ' } },
+		{ name: 'NaturezaOperacaoForm.razor.cs', dir: 'scr\\Client\\Naturezas', status: 'added', badge: { text: 'C#' } },
+		{ name: 'CadastroBuilder.cs', dir: 'scr\\Core\\Infraestructure\\MySql', status: 'modified', badge: { text: 'C#' }, source: 'terminal' },
+		{ name: '.env', dir: '', status: 'modified', badge: { text: 'ENV' }, sensitive: 'segredo' }
+	];
+	const names = text => files.filter(file => itemMatchesFilter(file, filterTokens(text))).map(file => file.name);
+
+	test('sem texto, todos aparecem', () => {
+		assert.deepEqual(names(''), files.map(file => file.name));
+		assert.deepEqual(names('   '), files.map(file => file.name));
+	});
+
+	test('acha pelo tipo do arquivo, sem diferenciar maiusculas', () => {
+		assert.deepEqual(names('razor'), ['NaturezaOperacaoForm.razor', 'NaturezaOperacaoForm.razor.cs']);
+		assert.deepEqual(names('RAZOR'), ['NaturezaOperacaoForm.razor', 'NaturezaOperacaoForm.razor.cs']);
+	});
+
+	test('acha pelo nome, pela pasta e pela etiqueta do tipo', () => {
+		assert.deepEqual(names('builder'), ['CadastroBuilder.cs']);
+		assert.deepEqual(names('mysql'), ['CadastroBuilder.cs']);
+		assert.deepEqual(names('c#'), ['NaturezaOperacaoForm.razor.cs', 'CadastroBuilder.cs']);
+	});
+
+	test('varias palavras precisam aparecer todas', () => {
+		assert.deepEqual(names('natureza cs'), ['NaturezaOperacaoForm.razor.cs']);
+		assert.deepEqual(names('natureza builder'), []);
+	});
+
+	test('acha pelas etiquetas NEW, MODIFIED, SENSITIVE e TERMINAL', () => {
+		assert.deepEqual(names('new'), ['NaturezaOperacaoForm.razor', 'NaturezaOperacaoForm.razor.cs']);
+		assert.deepEqual(names('modified'), ['CadastroBuilder.cs', '.env']);
+		assert.deepEqual(names('sensitive'), ['.env']);
+		assert.deepEqual(names('terminal'), ['CadastroBuilder.cs']);
+	});
+
+	test('a tela tem a caixa de busca, a etiqueta MODIFIED e os botoes que valem so para os arquivos exibidos', () => {
+		assert.ok(CLIENT_SCRIPT.includes('itemMatchesFilter'), 'a funcao de busca vai para dentro da tela');
+		assert.ok(/type: 'keepFiles', files/.test(CLIENT_SCRIPT), 'aceitar so os exibidos');
+		assert.ok(/type: 'revertFiles', files/.test(CLIENT_SCRIPT), 'descartar so os exibidos');
+		assert.ok(/status === 'modified'[^;]*tag mod/.test(CLIENT_SCRIPT), 'etiqueta nos modificados');
 	});
 });

@@ -9,6 +9,7 @@
 // com textContent (nenhum texto de arquivo vira HTML). Sem VS Code.
 
 const { t, getLanguage } = require('./i18n');
+const { filterTokens, itemMatchesFilter } = require('./reviewPanelLib');
 
 const CLIENT_SCRIPT = `
 // L (textos ja traduzidos) e injetado antes deste script por renderPanelHtml.
@@ -59,17 +60,55 @@ function counts(added, removed) {
 	return wrap;
 }
 
+${filterTokens.toString()}
+${itemMatchesFilter.toString()}
+let filterText = (vscode.getState() || {}).filter || '';
+let lastState;
+const search = el('input', 'filter');
+search.type = 'text';
+search.placeholder = L.filterPlaceholder;
+search.spellcheck = false;
+search.value = filterText;
+search.addEventListener('input', () => {
+	filterText = search.value;
+	vscode.setState({ filter: filterText });
+	if (lastState) { render(lastState); }
+});
+search.addEventListener('keydown', event => {
+	if (event.key === 'Escape' && search.value) {
+		event.preventDefault();
+		search.value = '';
+		search.dispatchEvent(new Event('input'));
+	}
+});
+
 function render(state) {
+	lastState = state;
+	const hadFocus = document.activeElement === search;
+	const caret = [search.selectionStart, search.selectionEnd];
 	root.textContent = '';
+	const tokens = filterTokens(filterText);
+	const filtering = tokens.length > 0;
+	const items = filtering ? state.items.filter(item => itemMatchesFilter(item, tokens)) : state.items;
+	const shown = items.filter(item => !item.reviewed);
+	const totals = filtering
+		? { files: shown.length, added: shown.reduce((sum, item) => sum + (item.added || 0), 0), removed: shown.reduce((sum, item) => sum + (item.removed || 0), 0) }
+		: state.totals;
 	const header = el('div', 'header');
 	const total = el('div', 'total');
-	total.appendChild(el('span', 'files', fmt(state.totals.files === 1 ? L.filesOne : L.filesMany, state.totals.files)));
-	total.appendChild(counts(state.totals.added, state.totals.removed));
+	total.appendChild(el('span', 'files', filtering ? L.filesFiltered.replace('{0}', totals.files).replace('{1}', state.totals.files) : fmt(state.totals.files === 1 ? L.filesOne : L.filesMany, state.totals.files)));
+	total.appendChild(counts(totals.added, totals.removed));
 	header.appendChild(total);
 	const bulk = el('div', 'bulk');
-	const accept = button('accept', '\\u2713 ' + L.acceptAll, L.acceptAllTip, () => send({ type: 'keepAll' }));
-	const discard = button('discard', '\\u21b6 ' + L.discardAll, L.discardAllTip, () => send({ type: 'revertAll' }));
-	if (!state.totals.files) { accept.disabled = true; discard.disabled = true; }
+	// Com busca ligada, os botoes valem so para os arquivos que aparecem na lista
+	const files = shown.map(item => item.file);
+	const accept = filtering
+		? button('accept', '\\u2713 ' + fmt(L.acceptShown, files.length), L.acceptShownTip, () => send({ type: 'keepFiles', files }))
+		: button('accept', '\\u2713 ' + L.acceptAll, L.acceptAllTip, () => send({ type: 'keepAll' }));
+	const discard = filtering
+		? button('discard', '\\u21b6 ' + fmt(L.discardShown, files.length), L.discardShownTip, () => send({ type: 'revertFiles', files }))
+		: button('discard', '\\u21b6 ' + L.discardAll, L.discardAllTip, () => send({ type: 'revertAll' }));
+	if (!totals.files) { accept.disabled = true; discard.disabled = true; }
 	bulk.appendChild(accept);
 	bulk.appendChild(discard);
 	header.appendChild(bulk);
@@ -82,6 +121,15 @@ function render(state) {
 	tools.appendChild(button('link', L.refresh, L.refreshTip, () => send({ type: 'refresh' })));
 	root.appendChild(tools);
 
+	if (state.items.length || filterText) {
+		const box = el('div', 'filterbox');
+		box.appendChild(search);
+		if (filterText) {
+			box.appendChild(button('clear', '\\u00d7', L.clearFilter, () => { search.value = ''; search.dispatchEvent(new Event('input')); }));
+		}
+		root.appendChild(box);
+	}
+
 	if (state.conversation) { root.appendChild(el('div', 'sub', fmt(L.conversation, state.conversation))); }
 	if (state.hiddenReviewed || state.showReviewed) {
 		const line = el('div', 'sub');
@@ -92,10 +140,12 @@ function render(state) {
 
 	if (!state.items.length) {
 		root.appendChild(el('div', 'empty', state.emptyText));
+	} else if (!items.length) {
+		root.appendChild(el('div', 'empty', L.noMatch));
 	}
 
 	const list = el('div', 'list');
-	for (const item of state.items) {
+	for (const item of items) {
 		const row = el('div', 'row' + (item.reviewed ? ' reviewed' : ''));
 		const chevron = button('chev', item.expanded ? '\\u25be' : '\\u25b8', L.showHunks, () => send({ type: 'toggle', file: item.file }));
 		if (item.status !== 'modified') { chevron.style.visibility = 'hidden'; }
@@ -112,6 +162,7 @@ function render(state) {
 		row.appendChild(name);
 		if (item.dir) { row.appendChild(el('span', 'dir', item.dir)); }
 		if (item.status === 'added') { row.appendChild(el('span', 'tag new', L.tagNew)); }
+		if (item.status === 'modified') { row.appendChild(el('span', 'tag mod', L.tagModified)); }
 		if (item.status === 'deleted') { row.appendChild(el('span', 'tag gone', L.tagDeleted)); }
 		if (item.sensitive) {
 			const warn = el('span', 'tag warn', L.tagSensitive);
@@ -162,6 +213,10 @@ function render(state) {
 	}
 	root.appendChild(list);
 	root.appendChild(el('div', 'note', state.terminalNote || ''));
+	if (hadFocus) {
+		search.focus();
+		search.setSelectionRange(caret[0], caret[1]);
+	}
 }
 
 window.addEventListener('message', event => {
@@ -206,6 +261,12 @@ button{font:inherit;cursor:pointer;color:inherit;background:transparent;border:0
 .tag{font-size:10px;font-weight:700;border-radius:3px;padding:0 5px;line-height:1.5}
 .tag.new{background:rgba(46,160,67,.25);color:#56d364}
 .tag.gone{background:rgba(248,81,73,.25);color:#ff7b72}
+.tag.mod{background:rgba(56,139,253,.25);color:#79c0ff}
+.filterbox{display:flex;align-items:center;gap:4px;padding:0 12px 6px}
+.filter{flex:1;min-width:0;font:inherit;padding:3px 6px;border-radius:3px;color:var(--vscode-input-foreground);background:var(--vscode-input-background);border:1px solid var(--vscode-input-border,transparent);outline:none}
+.filter:focus{border-color:var(--vscode-focusBorder)}
+.clear{padding:0 6px;font-size:16px;line-height:1;color:var(--vscode-descriptionForeground)}
+.clear:hover{color:var(--vscode-foreground)}
 .tag.term{background:rgba(210,153,34,.25);color:#e3b341}
 .when{color:var(--vscode-descriptionForeground);font-size:12px;white-space:nowrap;margin-right:10px}
 .tag.warn{background:rgba(219,109,40,.28);color:#ffa657}
@@ -229,6 +290,14 @@ function labelsJson() {
 		stateDeleted: t('Deleted file'),
 		filesOne: t('{0} file'),
 		filesMany: t('{0} files'),
+		filesFiltered: t('{0} of {1} files'),
+		filterPlaceholder: t('Filter files (name, folder, type)'),
+		clearFilter: t('Clear the filter'),
+		noMatch: t('No file matches the filter'),
+		acceptShown: t('Accept {0} shown'),
+		acceptShownTip: t('Marks only the files shown as reviewed'),
+		discardShown: t('Discard {0} shown'),
+		discardShownTip: t('Reverts only the files shown (asks for confirmation)'),
 		acceptAll: t('Accept all'),
 		acceptAllTip: t('Marks all files as reviewed'),
 		discardAll: t('Discard all'),
@@ -246,6 +315,7 @@ function labelsJson() {
 		show: t('show'),
 		showHunks: t('Show the hunks'),
 		tagNew: t('NEW'),
+		tagModified: t('MODIFIED'),
 		tagDeleted: t('DELETED'),
 		tagSensitive: t('SENSITIVE'),
 		modifiedAt: t('Last modified:'),

@@ -477,6 +477,19 @@ function registerReviewView(context) {
 			case 'revertAll':
 				await vscode.commands.executeCommand('agentecode.review.revertAll');
 				break;
+			case 'keepFiles':
+			case 'revertFiles': {
+				// Botoes com a busca ligada: valem so para os arquivos que a tela mostra (e que ainda estao pendentes)
+				const chosen = (Array.isArray(message.files) ? message.files : []).map(file => itemOf(file)).filter(found => found && pendingByKey.has(keyOf(found.file)));
+				if (chosen.length) {
+					if (message.type === 'keepFiles') {
+						await markReviewed(chosen.map(found => found.file));
+					} else {
+						await restoreFiles(chosen, t('review: {0} file(s)', chosen.length));
+					}
+				}
+				break;
+			}
 			case 'chooseBase':
 				await vscode.commands.executeCommand('agentecode.review.chooseBase');
 				break;

@@ -2,6 +2,14 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.24 - 10/11/2026
+
+Find files fast in "Agent Changes", and see at a glance which ones are modified.
+
+- **Search box in "Agent Changes":** type part of a name, a folder or a file type and the list filters as you type. `razor` finds the `.razor` files, `natureza builder` needs both words, and `c#` finds by the type badge. It also understands the tags: `new`, `modified`, `deleted`, `sensitive` and `terminal`. Press `Esc` or the x to clear it.
+- **Buttons follow the search:** while a search is on, the buttons become **Accept N shown** and **Discard N shown** and only act on the files you can see, so nothing hidden is reverted by mistake.
+- **MODIFIED tag:** modified files now have a blue **MODIFIED** tag, like the **NEW** one on new files. The status tags come first, then the others such as **TERMINAL**.
+
 ## v1.0.23 - 10/11/2026
 
 Agent changes stop showing what you already committed, and the 2026 themes get closer to Visual Studio on Razor files.
