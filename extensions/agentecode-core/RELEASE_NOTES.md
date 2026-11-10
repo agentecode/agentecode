@@ -2,6 +2,12 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.25 - 10/11/2026
+
+Agent Sessions and Claude Code side by side, with one button.
+
+- **Split or join button:** in the header of "Session History" there is a new button that moves **Agent Sessions** to the left side bar, so it stays visible next to your code while Claude Code stays on the right. Click it again to join them back as tabs on the right. The choice is remembered when you reopen the IDE. The same actions are in the Command Palette as "Split Agent Sessions Beside Claude Code" and "Join Agent Sessions With Claude Code".
+
 ## v1.0.24 - 10/11/2026
 
 Find files fast in "Agent Changes", and see at a glance which ones are modified.
