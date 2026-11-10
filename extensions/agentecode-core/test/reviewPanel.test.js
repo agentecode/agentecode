@@ -52,6 +52,8 @@ describe('Tela Alteracoes do agente (webview)', () => {
 		const section = 'agentecodeReviewRow';
 		assert.ok(CLIENT_SCRIPT.includes('data-vscode-context') && CLIENT_SCRIPT.includes(section));
 		assert.ok(!CLIENT_SCRIPT.includes('preventDefaultContextMenuItems'), 'o menu padrao (Cut, Copy, Paste) continua junto dos itens novos');
+		assert.ok(/type: 'cycleSort'/.test(CLIENT_SCRIPT), 'link para alternar a ordem dos arquivos');
+		assert.ok(CLIENT_SCRIPT.includes('item.mtime') && /'when'/.test(CLIENT_SCRIPT), 'mostra a hora da ultima modificacao do arquivo');
 		const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
 		const menu = manifest.contributes.menus['webview/context'];
 		assert.deepEqual(menu.map(entry => entry.command), ['agentecode.review.openFileFromPanel', 'agentecode.review.openFromPanel']);

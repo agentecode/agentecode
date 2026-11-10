@@ -2,6 +2,13 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.21 - 10/11/2026
+
+See when each file was edited, and choose the order.
+
+- **Edit time on each row:** "Agent Changes" now shows when each file was last modified: just the time for today, date and time for other days. Hover it for the full date.
+- **Sort order:** files are listed by edit time, oldest first by default. The new **Sort** link next to Refresh switches between oldest first, newest first and by path, and your choice is remembered (setting `agentecode.review.sortOrder`). Sensitive files still come first.
+
 ## v1.0.20 - 03/11/2026
 
 Open the real file from the agent changes, not only the diff.

@@ -2,7 +2,7 @@
   "name": "agentecode-core",
   "displayName": "AgenteCode Core",
   "description": "%description%",
-  "version": "1.0.20",
+  "version": "1.0.21",
   "publisher": "agentecode",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -482,6 +482,13 @@
         	"type": "boolean",
         	"default": true,
         	"description": "%config.review.codeLens.description%"
+        },
+        "agentecode.review.sortOrder": {
+        	"type": "string",
+        	"enum": ["timeOldestFirst", "timeNewestFirst", "path"],
+        	"enumDescriptions": ["%config.review.sortOrder.timeOldestFirst%", "%config.review.sortOrder.timeNewestFirst%", "%config.review.sortOrder.path%"],
+        	"default": "timeOldestFirst",
+        	"description": "%config.review.sortOrder.description%"
         },
         "agentecode.review.sensitivePaths": {
         	"type": "array",

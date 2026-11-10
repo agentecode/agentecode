@@ -78,6 +78,7 @@ function render(state) {
 	const tools = el('div', 'tools');
 	tools.appendChild(button('link', fmt(L.compareWith, state.base) + ' \\u25be', L.compareTip, () => send({ type: 'chooseBase' })));
 	tools.appendChild(button('link', L.switchChat, L.switchChatTip, () => send({ type: 'chooseSession' })));
+	tools.appendChild(button('link', L.sortBy + ' ' + (L.sortNames[state.sort] || L.sortNames.timeOldestFirst), L.sortTip, () => send({ type: 'cycleSort' })));
 	tools.appendChild(button('link', L.refresh, L.refreshTip, () => send({ type: 'refresh' })));
 	root.appendChild(tools);
 
@@ -123,6 +124,14 @@ function render(state) {
 			row.appendChild(origin);
 		}
 		row.appendChild(el('span', 'spacer'));
+		if (item.mtime) {
+			const when = new Date(item.mtime);
+			const sameDay = when.toDateString() === new Date().toDateString();
+			const clock = when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+			const stamp = el('span', 'when', sameDay ? clock : when.toLocaleDateString([], { day: '2-digit', month: '2-digit' }) + ' ' + clock);
+			stamp.title = L.modifiedAt + ' ' + when.toLocaleString();
+			row.appendChild(stamp);
+		}
 		row.appendChild(counts(item.added, item.removed));
 		const actions = el('span', 'actions');
 		actions.appendChild(button('icon keep', '\\u2713', L.keepTip, () => send({ type: 'keep', file: item.file })));
@@ -198,6 +207,7 @@ button{font:inherit;cursor:pointer;color:inherit;background:transparent;border:0
 .tag.new{background:rgba(46,160,67,.25);color:#56d364}
 .tag.gone{background:rgba(248,81,73,.25);color:#ff7b72}
 .tag.term{background:rgba(210,153,34,.25);color:#e3b341}
+.when{color:var(--vscode-descriptionForeground);font-size:12px;white-space:nowrap;margin-right:10px}
 .tag.warn{background:rgba(219,109,40,.28);color:#ffa657}
 .spacer{flex:1}
 .actions{display:none;gap:2px}
@@ -238,6 +248,10 @@ function labelsJson() {
 		tagNew: t('NEW'),
 		tagDeleted: t('DELETED'),
 		tagSensitive: t('SENSITIVE'),
+		modifiedAt: t('Last modified:'),
+		sortBy: t('Sort:'),
+		sortTip: t('Change the order of the files (click to switch)'),
+		sortNames: { path: t('path'), timeOldestFirst: t('time, oldest first'), timeNewestFirst: t('time, newest first') },
 		nameTip: t('Click: view the difference · Ctrl+click: open the file'),
 		terminalApprox: t('Changed outside the agent log (terminal or another tool). Approximate comparison, against the last commit before the conversation.'),
 		terminalExact: t('Changed by a terminal command or another tool (outside the agent log).'),

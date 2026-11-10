@@ -297,6 +297,12 @@ function registerReviewView(context) {
 	/** @type {vscode.WebviewView | undefined} */
 	let panelView;
 
+	const SORT_ORDERS = ['timeOldestFirst', 'timeNewestFirst', 'path'];
+	const sortOrder = () => {
+		const value = vscode.workspace.getConfiguration('agentecode.review').get('sortOrder', 'timeOldestFirst');
+		return SORT_ORDERS.includes(value) ? value : 'timeOldestFirst';
+	};
+
 	async function buildPanelState() {
 		const items = review ? (showReviewed ? review.all : review.pending) : [];
 		const pending = review ? review.pending : [];
@@ -307,6 +313,8 @@ function registerReviewView(context) {
 			const key = keyOf(item.file);
 			const root = roots().find(r => isInsideAny(item.file, [r]));
 			const relDir = root ? path.dirname(path.relative(root, item.file)) : path.dirname(item.file);
+			// hora da ultima modificacao do arquivo (um stat por arquivo; apagado = sem hora)
+			const mtime = item.status === 'deleted' ? null : await fs.promises.stat(item.file).then(stat => stat.mtimeMs, () => null);
 			const row = {
 				file: item.file,
 				name: path.basename(item.file),
@@ -318,6 +326,7 @@ function registerReviewView(context) {
 				source: item.source,
 				approx: Boolean(item.approx),
 				sensitive: sensitiveOf(item.file),
+				mtime,
 				reviewed: !pendingKeys.has(key),
 				expanded: expanded.has(key)
 			};
@@ -331,6 +340,12 @@ function registerReviewView(context) {
 			}
 			rows.push(row);
 		}
+		// sensiveis primeiro; dentro de cada grupo, pela hora de edicao (padrao, do mais antigo ao mais recente) ou pelo caminho (sem hora, por ultimo)
+		const sort = sortOrder();
+		const timeKey = row => row.mtime ?? (sort === 'timeNewestFirst' ? 0 : Infinity);
+		rows.sort((a, b) => (a.sensitive ? 0 : 1) - (b.sensitive ? 0 : 1)
+			|| (sort === 'timeOldestFirst' ? timeKey(a) - timeKey(b) : sort === 'timeNewestFirst' ? timeKey(b) - timeKey(a) : 0)
+			|| a.file.localeCompare(b.file));
 		let emptyText = '';
 		if (!session) {
 			emptyText = t('No agent conversation found for this folder.');
@@ -345,6 +360,7 @@ function registerReviewView(context) {
 			totals: { files: pending.length, added: sum('added'), removed: sum('removed') },
 			hiddenReviewed: hidden,
 			showReviewed,
+			sort,
 			items: rows,
 			emptyText,
 			terminalNote: review ? terminalNote(review.terminalMode) : ''
@@ -370,6 +386,10 @@ function registerReviewView(context) {
 			case 'ready':
 			case 'refresh':
 				await reload();
+				await postPanel();
+				break;
+			case 'cycleSort':
+				await vscode.workspace.getConfiguration('agentecode.review').update('sortOrder', SORT_ORDERS[(SORT_ORDERS.indexOf(sortOrder()) + 1) % SORT_ORDERS.length], vscode.ConfigurationTarget.Global);
 				await postPanel();
 				break;
 			case 'open':

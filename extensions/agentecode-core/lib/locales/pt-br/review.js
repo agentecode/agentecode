@@ -26,6 +26,12 @@ module.exports = {
 	// Arquivos sensiveis
 	'sensitive': 'sensível',
 	'SENSITIVE': 'SENSÍVEL',
+	'Last modified:': 'Última modificação:',
+	'Sort:': 'Ordem:',
+	'Change the order of the files (click to switch)': 'Mudar a ordem dos arquivos (clique para alternar)',
+	'path': 'caminho',
+	'time, oldest first': 'hora, mais antigo primeiro',
+	'time, newest first': 'hora, mais recente primeiro',
 	'Sensitive file': 'Arquivo sensível',
 	'Can run commands on its own (editor tasks, CI, build scripts or git hooks).': 'Pode executar comandos sozinho (tarefas do editor, CI, scripts de build ou hooks do git).',
 	'May hold passwords or keys.': 'Pode conter senhas ou chaves.',
