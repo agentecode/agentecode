@@ -60,6 +60,18 @@
         "label": "AgenteCode One Dark Pro Clean",
         "uiTheme": "vs-dark",
         "path": "./themes/agentecode-one-dark-pro-clean-color-theme.json"
+      },
+      {
+        "id": "AgenteCode One Dark Pro 2026",
+        "label": "AgenteCode One Dark Pro 2026",
+        "uiTheme": "vs-dark",
+        "path": "./themes/agentecode-one-dark-pro-2026-color-theme.json"
+      },
+      {
+        "id": "AgenteCode One Dark Pro 2026 Clean",
+        "label": "AgenteCode One Dark Pro 2026 Clean",
+        "uiTheme": "vs-dark",
+        "path": "./themes/agentecode-one-dark-pro-2026-clean-color-theme.json"
       }
     ]
   }

@@ -100,7 +100,7 @@
       ],
       "settings": {
         "foreground": "#859289",
-        "fontStyle": "italic"
+        "fontStyle": ""
       }
     },
     {
@@ -112,7 +112,7 @@
       ],
       "settings": {
         "foreground": "#e67e80",
-        "fontStyle": "bold"
+        "fontStyle": ""
       }
     },
     {
@@ -155,7 +155,7 @@
       ],
       "settings": {
         "foreground": "#dbbc7f",
-        "fontStyle": "bold"
+        "fontStyle": ""
       }
     },
     {
@@ -203,7 +203,7 @@
     "keyword": "#e67e80",
     "class": {
       "foreground": "#dbbc7f",
-      "bold": true
+      "bold": false
     },
     "interface": "#b8ce82",
     "struct": "#86c691",
@@ -218,7 +218,7 @@
     "number": "#d699b6",
     "comment": {
       "foreground": "#859289",
-      "italic": true
+      "italic": false
     }
   }
 }

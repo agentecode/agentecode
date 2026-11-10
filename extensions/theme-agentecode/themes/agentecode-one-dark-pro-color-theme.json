@@ -100,7 +100,7 @@
       ],
       "settings": {
         "foreground": "#5c6370",
-        "fontStyle": "italic"
+        "fontStyle": ""
       }
     },
     {
@@ -211,7 +211,7 @@
     "keyword": "#c678dd",
     "class": {
       "foreground": "#e5c07b",
-      "bold": true
+      "bold": false
     },
     "interface": "#e5c07b",
     "struct": "#e5c07b",
@@ -226,7 +226,7 @@
     "number": "#d19a66",
     "comment": {
       "foreground": "#5c6370",
-      "italic": true
+      "italic": false
     }
   }
 }

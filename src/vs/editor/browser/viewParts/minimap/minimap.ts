@@ -45,7 +45,8 @@ import { RunOnceScheduler } from '../../../../base/common/async.js';
  */
 const POINTER_DRAG_RESET_DISTANCE = 140;
 
-const GUTTER_DECORATION_WIDTH = 2;
+// AgenteCode: barra de alteracoes mais larga no minimapa (como no Visual Studio); cabe dentro dos MINIMAP_GUTTER_WIDTH px da margem
+const GUTTER_DECORATION_WIDTH = 4;
 
 class MinimapOptions {
 

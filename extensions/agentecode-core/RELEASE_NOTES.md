@@ -2,6 +2,14 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.22 - 10/11/2026
+
+A new theme that matches the Visual Studio look, and a cleaner code style.
+
+- **New themes "AgenteCode One Dark Pro 2026" and "AgenteCode One Dark Pro 2026 Clean":** the editor colors come from the One Dark Pro 2026 theme of Visual Studio, so code looks the same in both. Pick it in the theme list, or only for the code with Editor Theme.
+- **No more bold and italic in the themes:** keywords, types and comments are drawn in a regular weight in every AgenteCode theme. Only the style changed, the colors stay as they were.
+- **Wider change bar in the minimap:** the green mark for changed lines is thicker, so it is easier to see where the file changed.
+
 ## v1.0.21 - 10/11/2026
 
 See when each file was edited, and choose the order.
