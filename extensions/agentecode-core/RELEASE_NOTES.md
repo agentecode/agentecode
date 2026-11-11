@@ -2,6 +2,15 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.27 - 11/11/2026
+
+Stack Agent Sessions and Claude Code on top of each other.
+
+- **Stack button** in the title bar of the Agent Sessions window puts Claude Code below Session History and Agent Changes, in the same side bar, so you see both at once. Drag the divider to resize.
+- **Swap button** moves Claude Code to the top or back to the bottom. Session History and Agent Changes always keep their usual order.
+- **Separate button** returns to the default: Agent Sessions and Claude Code as tabs. Nothing changes unless you press the stack button.
+- The same commands are available from the Command Palette (Stack, Swap, Separate).
+
 ## v1.0.26 - 11/11/2026
 
 More ways to open the files Claude mentions in the chat.
