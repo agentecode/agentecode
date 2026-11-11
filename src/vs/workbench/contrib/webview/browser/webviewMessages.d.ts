@@ -26,6 +26,7 @@ type WebViewDragEvent = {
 export type FromWebviewMessage = {
 	'onmessage': { message: any; transfer?: ArrayBuffer[] };
 	'did-click-link': { uri: string };
+	'agentecode-link-action': { action: 'open' | 'reveal' | 'copyPath' | 'copyLink'; href: string };
 	'did-scroll': { scrollYPercentage: number };
 	'did-focus': void;
 	'did-blur': void;
@@ -77,6 +78,7 @@ export type ToWebviewMessage = {
 		location: string | undefined;
 	};
 	'set-confirm-before-close': string;
+	'agentecode-link-actions': { enabled: boolean; labels: { open: string; reveal: string; copyPath: string; copyLink: string } };
 	'set-context-menu-visible': { visible: boolean };
 	'initial-scroll-position': number;
 	'content': UpdateContentEvent;

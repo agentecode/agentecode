@@ -2,6 +2,13 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.26 - 11/11/2026
+
+More ways to open the files Claude mentions in the chat.
+
+- **Ctrl+Click on a file link in the Claude Code chat** shows the file in the Windows File Explorer (Finder on macOS), selected, instead of opening it in the editor. A plain click still opens it in the editor.
+- **Richer right-click menu on file links:** **Open in Editor**, **Reveal in File Explorer**, **Copy Path** and **Copy Link**. Links to web pages keep the chat's own menu. If the file does not exist, you get a message with the path.
+
 ## v1.0.25 - 10/11/2026
 
 Agent Sessions and Claude Code side by side, with one button.

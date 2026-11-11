@@ -24,6 +24,7 @@ import { IRemoteAgentService } from '../../../services/remote/common/remoteAgent
 import { WebviewThemeDataProvider } from '../browser/themeing.js';
 import { WebviewInitInfo } from '../browser/webview.js';
 import { WebviewElement } from '../browser/webviewElement.js';
+import { AgenteCodeLinkActionHandler } from './agentecodeLinkActions.js';
 import { WindowIgnoreMenuShortcutsManager } from './windowIgnoreMenuShortcutsManager.js';
 
 /**
@@ -62,6 +63,10 @@ export class ElectronWebviewElement extends WebviewElement {
 			logService, remoteAuthorityResolverService, tunnelService, accessibilityService, instantiationService, remoteAgentService);
 
 		this._webviewKeyboardHandler = new WindowIgnoreMenuShortcutsManager(configurationService, mainProcessService, _nativeHostService);
+
+		// AgenteCode: Ctrl+click and the context menu on local file links of the Claude Code chat
+		const linkActions = instantiationService.createInstance(AgenteCodeLinkActionHandler);
+		this._register(this.onAgenteCodeLinkAction(action => linkActions.handle(action)));
 
 		this._webviewMainService = ProxyChannel.toService<IWebviewManagerService>(mainProcessService.getChannel('webview'));
 

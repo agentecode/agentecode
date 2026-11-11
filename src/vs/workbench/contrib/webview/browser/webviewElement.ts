@@ -11,6 +11,8 @@ import { CodeWindow } from '../../../../base/browser/window.js';
 import { promiseWithResolvers, ThrottledDelayer } from '../../../../base/common/async.js';
 import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
+import { agenteCodeText, resolveAgenteCodeLanguage } from '../../../../base/common/agentecodeLanguage.js';
+import { language as displayLanguage } from '../../../../base/common/platform.js';
 import { Lazy } from '../../../../base/common/lazy.js';
 import { Disposable, DisposableStore, IDisposable, MutableDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { COI, Schemas } from '../../../../base/common/network.js';
@@ -321,6 +323,21 @@ export class WebviewElement extends Disposable implements IWebviewElement, Webvi
 
 		this._confirmBeforeClose = configurationService.getValue<string>('window.confirmBeforeClose');
 
+		// AgenteCode: only the Claude Code chat gets the extra link actions (Ctrl+click reveals the file, richer context menu)
+		if (this.extension?.id.value.toLowerCase() === 'anthropic.claude-code') {
+			const language = resolveAgenteCodeLanguage(configurationService.getValue<string>('agentecode.language'), displayLanguage);
+			this._send('agentecode-link-actions', {
+				enabled: true,
+				labels: {
+					open: agenteCodeText(language, { en: 'Open in Editor', pt: 'Abrir no editor' }),
+					reveal: agenteCodeText(language, { en: 'Reveal in File Explorer', pt: 'Mostrar no Explorador de Arquivos' }),
+					copyPath: agenteCodeText(language, { en: 'Copy Path', pt: 'Copiar caminho' }),
+					copyLink: agenteCodeText(language, { en: 'Copy Link', pt: 'Copiar link' })
+				}
+			});
+		}
+		this._register(this.on('agentecode-link-action', data => this._onAgenteCodeLinkAction.fire(data)));
+
 		this._register(configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration('window.confirmBeforeClose')) {
 				this._confirmBeforeClose = configurationService.getValue('window.confirmBeforeClose');
@@ -378,6 +395,10 @@ export class WebviewElement extends Disposable implements IWebviewElement, Webvi
 
 	private readonly _onDidClickLink = this._register(new Emitter<string>());
 	public readonly onDidClickLink = this._onDidClickLink.event;
+
+	/** AgenteCode: action chosen on a link to a local file (Ctrl+click or the link context menu) in the Claude Code chat. */
+	private readonly _onAgenteCodeLinkAction = this._register(new Emitter<FromWebviewMessage['agentecode-link-action']>());
+	public readonly onAgenteCodeLinkAction = this._onAgenteCodeLinkAction.event;
 
 	private readonly _onMessage = this._register(new Emitter<WebviewMessageReceivedEvent>());
 	public readonly onMessage = this._onMessage.event;

@@ -5,7 +5,7 @@
 	<meta charset="UTF-8">
 
 	<meta http-equiv="Content-Security-Policy"
-		content="default-src 'none'; script-src 'sha256-sn80KfA+MU1XygyWiC6Pi0aLZubC6RmEK+O6llFPkGg=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
+		content="default-src 'none'; script-src 'sha256-mDxcnHtTSr2K4uf55loxotCw61szrlNtIR99AU8e/fg=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
 
 	<!-- Disable pinch zooming -->
 	<meta name="viewport"
@@ -540,6 +540,114 @@
 					documentStyle.setProperty(`--${variable}`, value);
 				}
 			}
+		};
+
+		// AgenteCode: links to local files in the Claude Code chat. Off by default; the host turns it on for that chat only.
+		/** @type {{ open: string, reveal: string, copyPath: string, copyLink: string } | undefined} */
+		let agenteCodeLinkLabels;
+
+		/**
+		 * The href of the clicked link when it points to a local file (not a web link, mail, command, anchor...).
+		 * @param {Event} event
+		 * @returns {string | undefined}
+		 */
+		const agenteCodeLocalLink = (event) => {
+			const target = /** @type {any} */ (event.target);
+			if (!agenteCodeLinkLabels || !target || !target.closest) {
+				return undefined;
+			}
+			const anchor = target.closest('a');
+			const href = anchor && anchor.getAttribute('href');
+			if (!href || href.startsWith('#')) {
+				return undefined;
+			}
+			// A scheme with 2+ characters (http, mailto, vscode, command...) is not a local file; "C:" (one letter) is a drive
+			if (/^[a-zA-Z][a-zA-Z0-9+.-]+:/.test(href) && !/^file:/i.test(href)) {
+				return undefined;
+			}
+			return href;
+		};
+
+		/**
+		 * Ctrl/Cmd+click on a local file link reveals it in the OS file explorer (plain click keeps opening it in the editor).
+		 * @param {MouseEvent} event
+		 */
+		const handleAgenteCodeLinkClick = (event) => {
+			if (!event.isTrusted || !(event.ctrlKey || event.metaKey)) {
+				return;
+			}
+			const href = agenteCodeLocalLink(event);
+			if (!href) {
+				return;
+			}
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation();
+			hostMessaging.postMessage('agentecode-link-action', { action: 'reveal', href });
+		};
+
+		/**
+		 * Context menu for local file links, replacing the chat's own "Copy Link" only menu.
+		 * @param {MouseEvent} event
+		 */
+		const handleAgenteCodeLinkContextMenu = (event) => {
+			const href = agenteCodeLocalLink(event);
+			const labels = agenteCodeLinkLabels;
+			const doc = event.view && event.view.document;
+			if (!href || !labels || !doc) {
+				return;
+			}
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation();
+
+			const old = doc.getElementById('agentecode-link-menu');
+			if (old) {
+				old.remove();
+			}
+			const menu = doc.createElement('div');
+			menu.id = 'agentecode-link-menu';
+			menu.style.cssText = 'position:fixed;z-index:2147483647;min-width:200px;padding:4px;border-radius:6px;font-size:13px;'
+				+ 'font-family:var(--vscode-font-family,sans-serif);background:var(--vscode-menu-background,#252526);color:var(--vscode-menu-foreground,#ccc);'
+				+ 'border:1px solid var(--vscode-menu-border,var(--vscode-widget-border,#454545));box-shadow:0 2px 8px var(--vscode-widget-shadow,rgba(0,0,0,.36));';
+			const close = () => {
+				menu.remove();
+				doc.removeEventListener('mousedown', onOutside, true);
+				doc.removeEventListener('keydown', onKey, true);
+				event.view.removeEventListener('blur', close);
+			};
+			const onOutside = (/** @type {MouseEvent} */ e) => {
+				if (!menu.contains(/** @type {Node} */ (e.target))) {
+					close();
+				}
+			};
+			const onKey = (/** @type {KeyboardEvent} */ e) => {
+				if (e.key === 'Escape') {
+					e.preventDefault();
+					close();
+				}
+			};
+			/** @type {Array<['open' | 'reveal' | 'copyPath' | 'copyLink', string]>} */
+			const items = [['open', labels.open], ['reveal', labels.reveal], ['copyPath', labels.copyPath], ['copyLink', labels.copyLink]];
+			for (const [action, label] of items) {
+				const item = doc.createElement('div');
+				item.textContent = label;
+				item.style.cssText = 'padding:4px 12px;border-radius:4px;cursor:pointer;white-space:nowrap;';
+				item.addEventListener('mouseenter', () => { item.style.background = 'var(--vscode-menu-selectionBackground,#04395e)'; item.style.color = 'var(--vscode-menu-selectionForeground,#fff)'; });
+				item.addEventListener('mouseleave', () => { item.style.background = ''; item.style.color = ''; });
+				item.addEventListener('click', () => {
+					hostMessaging.postMessage('agentecode-link-action', { action, href });
+					close();
+				});
+				menu.appendChild(item);
+			}
+			doc.body.appendChild(menu);
+			const view = event.view;
+			menu.style.left = Math.max(0, Math.min(event.clientX, view.innerWidth - menu.offsetWidth - 4)) + 'px';
+			menu.style.top = Math.max(0, Math.min(event.clientY, view.innerHeight - menu.offsetHeight - 4)) + 'px';
+			doc.addEventListener('mousedown', onOutside, true);
+			doc.addEventListener('keydown', onKey, true);
+			view.addEventListener('blur', close);
 		};
 
 		/**
@@ -1182,6 +1290,8 @@
 					});
 
 					// Bubble out various events
+					contentWindow.addEventListener('click', handleAgenteCodeLinkClick, true);
+					contentWindow.addEventListener('contextmenu', handleAgenteCodeLinkContextMenu, true);
 					contentWindow.addEventListener('click', handleInnerClick);
 					contentWindow.addEventListener('auxclick', handleAuxClick);
 					contentWindow.addEventListener('keydown', handleInnerKeydown);
@@ -1237,6 +1347,10 @@
 			});
 
 			// propagate vscode-context-menu-visible class
+			hostMessaging.onMessage('agentecode-link-actions', (_event, data) => {
+				agenteCodeLinkLabels = data && data.enabled ? data.labels : undefined;
+			});
+
 			hostMessaging.onMessage('set-context-menu-visible', (_event, data) => {
 				const target = getActiveFrame();
 				if (target && target.contentDocument) {
