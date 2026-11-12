@@ -2,6 +2,15 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.30 - 12/11/2026
+
+A much more detailed Usage history, and it no longer forgets deleted conversations.
+
+- **Details of a day:** click any bar in the chart (today is shown by default) to see where the cost comes from: cache read, cache write, new input and output. You also get the cost by conversation, by hour, the most expensive replies, and numbers such as replies, average per reply and average and largest context.
+- **Compare periods:** the chosen period (7, 30 or 90 days) against the one right before it, with cost, replies, cost per reply, average context and output per reply, and the change in percent.
+- **Subscription limits over time:** the 5h and 7d percentages are now saved on every reading. A table shows, for each day, the cost, the 5h peak, how much the weekly limit rose and the estimated US$ per point, so you can tell whether the same work is using more of the limit than in other weeks.
+- **Deleted conversations keep counting:** the history keeps its own totals. When Claude Code, or you, delete a conversation, what it had spent stays in the history, marked as deleted. The IDE saves each conversation shortly after Claude writes to it. Conversations deleted before this version cannot be recovered.
+
 ## v1.0.29 - 12/11/2026
 
 Comments get easier to use, and a duplicate file in the changes list is fixed.
