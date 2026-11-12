@@ -12,7 +12,7 @@ const { computeReview, splitReviewed, fingerprint, listBases } = require('./revi
 const { computeHunks, revertHunkInText, hunksNotInCommit } = require('./reviewHunks');
 const { languageBadge } = require('./reviewPanelLib');
 const { renderPanelHtml } = require('./reviewPanelHtml');
-const { setComment, addRejected, buildPrompt } = require('./reviewComments');
+const { commentKeys, setComment, addRejected, buildPrompt, FILE_COMMENT_KEY } = require('./reviewComments');
 const { isInsideAny, BACKUP_NAME } = require('./checkpoints');
 const { listSessions, fileHistoryDir } = require('./sessionStore');
 const { applyChange } = require('./rewindPlan');
@@ -380,13 +380,16 @@ function registerReviewView(context) {
 				sensitive: sensitiveOf(item.file),
 				mtime,
 				reviewed: !pendingKeys.has(key),
-				expanded: expanded.has(key)
+				expanded: expanded.has(key),
+				comment: listOf(COMMENTS_KEY).find(c => keyOf(c.file) === key && c.key === `${FILE_COMMENT_KEY}:${item.status}`)?.text
 			};
 			if (row.expanded && item.status === 'modified') {
 				try {
 					const text = await fs.promises.readFile(item.file, 'utf8');
 					const comments = listOf(COMMENTS_KEY).filter(c => keyOf(c.file) === key);
-					row.hunks = (await pendingHunks(item, text)).map(h => ({ key: h.key, line: h.modStart + 1, added: h.afterLines.length, removed: h.beforeLines.length, comment: comments.find(c => c.key === h.key)?.text }));
+					const found = await pendingHunks(item, text);
+					const ids = commentKeys(found.map(h => h.key));
+					row.hunks = found.map((h, index) => ({ key: h.key, commentKey: ids[index], line: h.modStart + 1, added: h.afterLines.length, removed: h.beforeLines.length, comment: comments.find(c => c.key === ids[index])?.text }));
 				} catch {
 					row.hunks = [];
 				}
@@ -509,9 +512,12 @@ function registerReviewView(context) {
 			}
 			case 'commentHunk':
 				if (item && typeof message.key === 'string') {
-					const hunk = (await pendingHunks(item, await fs.promises.readFile(item.file, 'utf8').catch(() => ''))).find(h => h.key === message.key);
-					if (hunk || !String(message.text ?? '').trim()) {
-						await saveList(COMMENTS_KEY, setComment(listOf(COMMENTS_KEY), { file: item.file, key: message.key, line: hunk ? hunk.modStart + 1 : 1, text: message.text, snippet: hunk ? hunk.afterLines : [] }));
+					// Comentario do arquivo inteiro (chave especial): serve a arquivo novo, apagado ou modificado, sem linha nem trecho
+					const wholeFile = message.key.startsWith(FILE_COMMENT_KEY);
+					const found = wholeFile ? [] : await pendingHunks(item, await fs.promises.readFile(item.file, 'utf8').catch(() => ''));
+					const hunk = found[commentKeys(found.map(h => h.key)).indexOf(message.key)];
+					if (wholeFile || hunk || !String(message.text ?? '').trim()) {
+						await saveList(COMMENTS_KEY, setComment(listOf(COMMENTS_KEY), { file: item.file, key: message.key, line: hunk ? hunk.modStart + 1 : 0, text: message.text, snippet: hunk ? hunk.afterLines : [] }));
 					}
 					await postPanel();
 				}
@@ -529,8 +535,11 @@ function registerReviewView(context) {
 					await saveList(COMMENTS_KEY, []);
 					await saveList(REJECTED_KEY, []);
 					await postPanel();
+					// Foca o chat do Claude e cola o texto no campo de mensagem; quem envia (Enter) e o usuario, depois de ler
 					await vscode.commands.executeCommand('claude-vscode.focus').then(undefined, () => undefined);
-					void vscode.window.showInformationMessage(t('Comments copied. Paste them in the Claude Code chat (Ctrl+V) and send.'));
+					await new Promise(resolve => setTimeout(resolve, 500));
+					await vscode.commands.executeCommand('editor.action.clipboardPasteAction').then(undefined, () => undefined);
+					void vscode.window.showInformationMessage(t('Comments pasted in the Claude Code chat. Read them and press Enter to send. If nothing appeared, press Ctrl+V.'));
 				}
 				break;
 			}

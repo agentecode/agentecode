@@ -11,11 +11,28 @@
 /** Quantas linhas do trecho entram no texto enviado e quantos itens a lista de rejeitados guarda. */
 const SNIPPET_LINES = 8;
 const MAX_REJECTED = 50;
+/** Chave do comentario que vale para o arquivo inteiro, e nao para um trecho. */
+const FILE_COMMENT_KEY = '__file__';
 
 /**
  * @typedef {{ file: string, key: string, line: number, text: string, snippet: string[] }} ReviewComment
  * @typedef {{ file: string, line?: number, snippet?: string[] }} RejectedChange
  */
+
+/**
+ * Chave de comentario unica para cada trecho de um arquivo. A chave do trecho vem do conteudo, entao dois trechos
+ * identicos teriam a mesma; do segundo em diante acrescenta-se "#N" para nao confundir os comentarios.
+ * @param {string[]} hunkKeys  chaves dos trechos na ordem em que aparecem
+ * @returns {string[]}
+ */
+function commentKeys(hunkKeys) {
+	const seen = new Map();
+	return hunkKeys.map(key => {
+		const n = seen.get(key) ?? 0;
+		seen.set(key, n + 1);
+		return n ? `${key}#${n}` : key;
+	});
+}
 
 /**
  * Coloca (ou troca) o comentario de um trecho; texto vazio apaga.
@@ -49,7 +66,7 @@ function addRejected(list, change) {
 function buildPrompt(comments, rejected) {
 	const lines = ['I reviewed your changes and have comments. Go through them one by one: fix the code where needed and reply briefly to each.', ''];
 	comments.forEach((c, index) => {
-		lines.push(`${index + 1}. ${c.file}:${c.line}`);
+		lines.push(`${index + 1}. ${c.line ? `${c.file}:${c.line}` : `${c.file} (the whole file)`}`);
 		if (c.snippet && c.snippet.length) {
 			lines.push('   Code:', '   ```', ...c.snippet.map(s => `   ${s}`), '   ```');
 		}
@@ -68,4 +85,4 @@ function buildPrompt(comments, rejected) {
 	return lines.join('\n').trimEnd() + '\n';
 }
 
-module.exports = { setComment, addRejected, buildPrompt, SNIPPET_LINES, MAX_REJECTED };
+module.exports = { commentKeys, setComment, addRejected, buildPrompt, SNIPPET_LINES, MAX_REJECTED, FILE_COMMENT_KEY };

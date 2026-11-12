@@ -7,7 +7,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert');
-const { setComment, addRejected, buildPrompt, MAX_REJECTED } = require('../lib/reviewComments');
+const { commentKeys, setComment, addRejected, buildPrompt, MAX_REJECTED } = require('../lib/reviewComments');
 
 test('setComment adds, replaces and removes by file and hunk', () => {
 	let list = setComment([], { file: 'a.cs', key: 'k1', line: 3, text: ' fix this ', snippet: ['x'] });
@@ -43,4 +43,15 @@ test('buildPrompt lists comments with code and the discarded changes', () => {
 	assert.match(text, /- src\/b\.cs:7 \(the lines starting with: foo\(\);\)/);
 	assert.match(text, /- src\/c\.cs \(the whole file was reverted\)/);
 	assert.ok(!/Changes I discarded/.test(buildPrompt([{ file: 'a', key: 'k', line: 1, text: 't', snippet: [] }], [])));
+});
+
+test('buildPrompt marks a comment on the whole file', () => {
+	const text = buildPrompt([{ file: 'src/new.cs', key: '__file__', line: 0, text: 'split this class', snippet: [] }], []);
+	assert.match(text, /1\. src\/new\.cs \(the whole file\)/);
+	assert.ok(!/Code:/.test(text));
+});
+
+test('commentKeys gives identical hunks different keys', () => {
+	assert.deepStrictEqual(commentKeys(['a', 'b', 'a', 'a']), ['a', 'b', 'a#1', 'a#2']);
+	assert.deepStrictEqual(commentKeys(['x']), ['x']);
 });

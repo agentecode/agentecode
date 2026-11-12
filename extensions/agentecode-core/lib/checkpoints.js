@@ -116,7 +116,24 @@ function planRewind(entries, messageId) {
 			}
 		}
 	}
-	return [...plan].map(([file, backupFileName]) => ({ file, backupFileName }));
+	return dedupeByPath([...plan].map(([file, backupFileName]) => ({ file, backupFileName })));
+}
+
+/**
+ * O Claude Code pode gravar o mesmo arquivo com caminhos escritos de jeitos diferentes (`C:\x` e `c:\x`, ou com barras
+ * diferentes). Fica so a primeira ocorrencia, que vem do turno mais antigo e por isso guarda o estado de antes de tudo.
+ * @param {{ file: string, backupFileName: string | null }[]} plan
+ */
+function dedupeByPath(plan) {
+	const seen = new Set();
+	return plan.filter(item => {
+		const key = normalizePath(item.file);
+		if (seen.has(key)) {
+			return false;
+		}
+		seen.add(key);
+		return true;
+	});
 }
 
 /** Compara caminhos do Windows sem diferenciar maiusculas e barras. */
@@ -144,7 +161,8 @@ function isInsideAny(file, roots) {
  * @param {string | undefined} cwd Pasta da conversa
  */
 function absolutizePlan(plan, cwd) {
-	return plan.map(item => (cwd && !path.isAbsolute(item.file) ? { ...item, file: path.resolve(cwd, item.file) } : item));
+	// caminho relativo e absoluto do mesmo arquivo viram um so depois de resolvidos
+	return dedupeByPath(plan.map(item => (cwd && !path.isAbsolute(item.file) ? { ...item, file: path.resolve(cwd, item.file) } : item)));
 }
 
 module.exports = { collectSnapshots, listCheckpoints, planRewind, absolutizePlan, isInsideAny, BACKUP_NAME };

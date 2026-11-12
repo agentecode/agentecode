@@ -67,6 +67,8 @@ let lastState;
 /** Trecho com a caixa de comentario aberta ({ file, key }) e o texto digitado, que sobrevive a atualizacoes da tela */
 let editing = null;
 let draft = '';
+/** O mesmo arquivo pode aparecer em duas linhas (ex.: NEW e MODIFIED); a situacao separa o comentario de cada linha */
+const fileKeyOf = item => '__file__:' + item.status;
 const sameHunk = (a, b) => !!a && !!b && a.file === b.file && a.key === b.key;
 const search = el('input', 'filter');
 search.type = 'text';
@@ -85,6 +87,41 @@ search.addEventListener('keydown', event => {
 		search.dispatchEvent(new Event('input'));
 	}
 });
+
+function appendComment(list, file, key, comment, indent) {
+	if (sameHunk(editing, { file, key })) {
+		const box = el('div', 'commentbox');
+		box.style.marginLeft = indent + 'px';
+		const area = el('textarea', 'commentarea');
+		area.rows = 3;
+		area.placeholder = L.commentPlaceholder;
+		area.value = draft;
+		area.addEventListener('input', () => { draft = area.value; });
+		const done = save => {
+			const target = editing;
+			editing = null;
+			if (save) { send({ type: 'commentHunk', file: target.file, key: target.key, text: area.value }); } else { render(lastState); }
+		};
+		area.addEventListener('keydown', e => {
+			if (e.key === 'Escape') { done(false); }
+			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { done(true); }
+		});
+		const bar = el('div', 'commentbtns');
+		bar.appendChild(button('primary', L.commentSave, L.commentSaveTip, () => done(true)));
+		bar.appendChild(button('plain', L.commentCancel, '', () => done(false)));
+		if (comment) { bar.appendChild(button('plain', L.commentRemove, '', () => { editing = null; send({ type: 'commentHunk', file: file, key: key, text: '' }); })); }
+		box.appendChild(area);
+		box.appendChild(bar);
+		list.appendChild(box);
+		setTimeout(() => { area.focus(); area.setSelectionRange(area.value.length, area.value.length); }, 0);
+	} else if (comment) {
+		const note = el('div', 'commenttext', comment);
+		note.title = L.commentEditTip;
+		note.style.marginLeft = indent + 'px';
+		note.addEventListener('click', () => { editing = { file: file, key: key }; draft = comment; render(lastState); });
+		list.appendChild(note);
+	}
+}
 
 function render(state) {
 	lastState = state;
@@ -178,6 +215,8 @@ function render(state) {
 			origin.title = item.approx ? L.terminalApprox : L.terminalExact;
 			row.appendChild(origin);
 		}
+		const fileComment = item.comment;
+		row.appendChild(button('icon comment' + (fileComment ? ' has' : ''), '\ud83d\udcac', L.commentFileTip, () => { editing = { file: item.file, key: fileKeyOf(item) }; draft = fileComment || ''; render(lastState); }));
 		row.appendChild(el('span', 'spacer'));
 		if (item.mtime) {
 			const when = new Date(item.mtime);
@@ -196,6 +235,8 @@ function render(state) {
 		row.setAttribute('data-vscode-context', JSON.stringify({ webviewSection: 'agentecodeReviewRow', file: item.file }));
 		list.appendChild(row);
 
+		appendComment(list, item.file, fileKeyOf(item), item.comment, 40);
+
 		if (item.expanded) {
 			if (!item.hunks || !item.hunks.length) {
 				list.appendChild(el('div', 'hunk none', L.noHunks));
@@ -203,7 +244,7 @@ function render(state) {
 			for (const hunk of item.hunks || []) {
 				const line = el('div', 'hunk');
 				line.appendChild(el('span', 'at', fmt(L.atLine, hunk.line)));
-				line.appendChild(button('icon comment' + (hunk.comment ? ' has' : ''), '\ud83d\udcac', L.commentTip, () => { editing = { file: item.file, key: hunk.key }; draft = hunk.comment || ''; render(lastState); }));
+				line.appendChild(button('icon comment' + (hunk.comment ? ' has' : ''), '\ud83d\udcac', L.commentTip, () => { editing = { file: item.file, key: hunk.commentKey }; draft = hunk.comment || ''; render(lastState); }));
 				line.appendChild(el('span', 'spacer'));
 				line.appendChild(counts(hunk.added, hunk.removed));
 				const hunkActions = el('span', 'actions');
@@ -213,36 +254,7 @@ function render(state) {
 				line.addEventListener('click', () => send({ type: 'goto', file: item.file, line: hunk.line }));
 				line.setAttribute('data-vscode-context', JSON.stringify({ webviewSection: 'agentecodeReviewRow', file: item.file }));
 				list.appendChild(line);
-				if (sameHunk(editing, { file: item.file, key: hunk.key })) {
-					const box = el('div', 'commentbox');
-					const area = el('textarea', 'commentarea');
-					area.rows = 3;
-					area.placeholder = L.commentPlaceholder;
-					area.value = draft;
-					area.addEventListener('input', () => { draft = area.value; });
-					const done = save => {
-						const target = editing;
-						editing = null;
-						if (save) { send({ type: 'commentHunk', file: target.file, key: target.key, text: area.value }); } else { render(lastState); }
-					};
-					area.addEventListener('keydown', e => {
-						if (e.key === 'Escape') { done(false); }
-						if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { done(true); }
-					});
-					const bar = el('div', 'commentbtns');
-					bar.appendChild(button('primary', L.commentSave, L.commentSaveTip, () => done(true)));
-					bar.appendChild(button('plain', L.commentCancel, '', () => done(false)));
-					if (hunk.comment) { bar.appendChild(button('plain', L.commentRemove, '', () => { editing = null; send({ type: 'commentHunk', file: item.file, key: hunk.key, text: '' }); })); }
-					box.appendChild(area);
-					box.appendChild(bar);
-					list.appendChild(box);
-					setTimeout(() => { area.focus(); area.setSelectionRange(area.value.length, area.value.length); }, 0);
-				} else if (hunk.comment) {
-					const note = el('div', 'commenttext', hunk.comment);
-					note.title = L.commentEditTip;
-					note.addEventListener('click', () => { editing = { file: item.file, key: hunk.key }; draft = hunk.comment; render(lastState); });
-					list.appendChild(note);
-				}
+				appendComment(list, item.file, hunk.commentKey, hunk.comment, 58);
 			}
 		}
 	}
@@ -383,7 +395,8 @@ function labelsJson() {
 		atLine: t('@line {0}'),
 		keepHunkTip: t('Keep this hunk'),
 		undoHunkTip: t('Undo this hunk'),
-		commentTip: t('Comment on this hunk'),
+		commentTip: t('Comment on this hunk only: the lines changed here, starting at the line shown. Sent to Claude with the code and the line number.'),
+		commentFileTip: t('Comment on the whole file: about the file as a whole, not a specific line. Works for new, modified and deleted files. Sent to Claude with the file path.'),
 		commentPlaceholder: t('Write your comment (Ctrl+Enter to save)'),
 		commentSave: t('Save'),
 		commentSaveTip: t('Save the comment (Ctrl+Enter)'),
@@ -395,7 +408,7 @@ function labelsJson() {
 		commentsClear: t('Clear'),
 		commentsClearTip: t('Deletes all the comments without sending them'),
 		commentsSend: t('Send to Claude'),
-		commentsSendTip: t('Copies the comments, and the changes you discarded, to paste in the Claude Code chat')
+		commentsSendTip: t('Pastes the comments, and the changes you discarded, in the Claude Code chat')
 	};
 	return JSON.stringify(labels).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 }

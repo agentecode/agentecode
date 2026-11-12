@@ -9,7 +9,8 @@
 
 module.exports = {
 	// Comentarios nos trechos
-	'Comment on this hunk': 'Comentar este trecho',
+	'Comment on this hunk only: the lines changed here, starting at the line shown. Sent to Claude with the code and the line number.': 'Comentar só este trecho: as linhas alteradas aqui, a partir da linha mostrada. Vai para o Claude com o código e o número da linha.',
+	'Comment on the whole file: about the file as a whole, not a specific line. Works for new, modified and deleted files. Sent to Claude with the file path.': 'Comentar o arquivo inteiro: sobre o arquivo como um todo, e não sobre uma linha. Vale para arquivos novos, modificados e apagados. Vai para o Claude com o caminho do arquivo.',
 	'Write your comment (Ctrl+Enter to save)': 'Escreva seu comentário (Ctrl+Enter para salvar)',
 	'Save': 'Salvar',
 	'Save the comment (Ctrl+Enter)': 'Salvar o comentário (Ctrl+Enter)',
@@ -21,8 +22,8 @@ module.exports = {
 	'Clear': 'Limpar',
 	'Deletes all the comments without sending them': 'Apaga todos os comentários sem enviar',
 	'Send to Claude': 'Enviar ao Claude',
-	'Copies the comments, and the changes you discarded, to paste in the Claude Code chat': 'Copia os comentários, e as mudanças que você descartou, para colar no chat do Claude Code',
-	'Comments copied. Paste them in the Claude Code chat (Ctrl+V) and send.': 'Comentários copiados. Cole no chat do Claude Code (Ctrl+V) e envie.',
+	'Pastes the comments, and the changes you discarded, in the Claude Code chat': 'Cola os comentários, e as mudanças que você descartou, no chat do Claude Code',
+	'Comments pasted in the Claude Code chat. Read them and press Enter to send. If nothing appeared, press Ctrl+V.': 'Comentários colados no chat do Claude Code. Leia e aperte Enter para enviar. Se nada apareceu, aperte Ctrl+V.',
 
 	// Estados e rotulos
 	'new': 'novo',

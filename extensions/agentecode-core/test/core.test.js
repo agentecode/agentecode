@@ -53,7 +53,7 @@ test('sessionToMarkdown converte conversa, ferramentas e protege blocos de códi
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { collectSnapshots, listCheckpoints, planRewind, isInsideAny } = require('../lib/checkpoints');
+const { collectSnapshots, listCheckpoints, planRewind, absolutizePlan, isInsideAny } = require('../lib/checkpoints');
 const { sessionMatches, entryText } = require('../lib/sessionStore');
 
 /** Sessao sintetica: u1 cria a.txt; u2 edita a.txt e b.txt; u3 edita os dois de novo. */
@@ -255,4 +255,24 @@ test('notas: o RELEASE_NOTES.md real tem a secao da versao do produto', () => {
 	const productJson = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'product.json'), 'utf8');
 	const version = parseVersion(/"nameLong":\s*"([^"]+)"/.exec(productJson)[1]).join('.');
 	assert.ok(sectionFor(real, version).length > 100, `faltam notas para a versao ${version}`);
+});
+
+test('o mesmo arquivo gravado com caminhos escritos de jeitos diferentes vira uma so entrada, com o estado mais antigo', { skip: process.platform !== 'win32' }, () => {
+	const bs = String.fromCharCode(92);
+	const win = text => text.split('/').join(bs);
+	const delta = (trackingPath, backupFileName, version) => ({ type: 'file-history-delta', messageId: 'x', snapshotMessageId: 'u1', trackingPath, backup: { backupFileName, version }, timestamp: 't1' });
+	const entries = [
+		{ type: 'file-history-snapshot', messageId: 'u1', snapshot: { messageId: 'u1', trackedFileBackups: {}, timestamp: 't1' } },
+		{ type: 'user', uuid: 'u1', timestamp: 't1', message: { content: 'crie' } },
+		delta(win('C:/p/a.txt'), null, 1),
+		delta('c:/p/a.txt', 'aaaa@v2', 2),
+		delta(win('sub/a.txt'), 'bbbb@v1', 1),
+		delta(win('C:/p/sub/a.txt'), 'cccc@v3', 3)
+	];
+	const plan = planRewind(entries, 'u1');
+	assert.deepEqual(plan.map(x => x.file), [win('C:/p/a.txt'), win('sub/a.txt'), win('C:/p/sub/a.txt')]);
+	assert.equal(plan[0].backupFileName, null, 'vale o estado de antes da primeira gravacao');
+	const absolute = absolutizePlan(plan, win('c:/p'));
+	assert.deepEqual(absolute.map(x => x.file), [win('C:/p/a.txt'), win('c:/p/sub/a.txt')]);
+	assert.equal(absolute[1].backupFileName, 'bbbb@v1', 'o relativo veio antes do absoluto, entao ele manda');
 });
