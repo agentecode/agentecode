@@ -64,6 +64,10 @@ ${filterTokens.toString()}
 ${itemMatchesFilter.toString()}
 let filterText = (vscode.getState() || {}).filter || '';
 let lastState;
+/** Trecho com a caixa de comentario aberta ({ file, key }) e o texto digitado, que sobrevive a atualizacoes da tela */
+let editing = null;
+let draft = '';
+const sameHunk = (a, b) => !!a && !!b && a.file === b.file && a.key === b.key;
 const search = el('input', 'filter');
 search.type = 'text';
 search.placeholder = L.filterPlaceholder;
@@ -199,6 +203,7 @@ function render(state) {
 			for (const hunk of item.hunks || []) {
 				const line = el('div', 'hunk');
 				line.appendChild(el('span', 'at', fmt(L.atLine, hunk.line)));
+				line.appendChild(button('icon comment' + (hunk.comment ? ' has' : ''), '\ud83d\udcac', L.commentTip, () => { editing = { file: item.file, key: hunk.key }; draft = hunk.comment || ''; render(lastState); }));
 				line.appendChild(el('span', 'spacer'));
 				line.appendChild(counts(hunk.added, hunk.removed));
 				const hunkActions = el('span', 'actions');
@@ -208,10 +213,48 @@ function render(state) {
 				line.addEventListener('click', () => send({ type: 'goto', file: item.file, line: hunk.line }));
 				line.setAttribute('data-vscode-context', JSON.stringify({ webviewSection: 'agentecodeReviewRow', file: item.file }));
 				list.appendChild(line);
+				if (sameHunk(editing, { file: item.file, key: hunk.key })) {
+					const box = el('div', 'commentbox');
+					const area = el('textarea', 'commentarea');
+					area.rows = 3;
+					area.placeholder = L.commentPlaceholder;
+					area.value = draft;
+					area.addEventListener('input', () => { draft = area.value; });
+					const done = save => {
+						const target = editing;
+						editing = null;
+						if (save) { send({ type: 'commentHunk', file: target.file, key: target.key, text: area.value }); } else { render(lastState); }
+					};
+					area.addEventListener('keydown', e => {
+						if (e.key === 'Escape') { done(false); }
+						if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { done(true); }
+					});
+					const bar = el('div', 'commentbtns');
+					bar.appendChild(button('primary', L.commentSave, L.commentSaveTip, () => done(true)));
+					bar.appendChild(button('plain', L.commentCancel, '', () => done(false)));
+					if (hunk.comment) { bar.appendChild(button('plain', L.commentRemove, '', () => { editing = null; send({ type: 'commentHunk', file: item.file, key: hunk.key, text: '' }); })); }
+					box.appendChild(area);
+					box.appendChild(bar);
+					list.appendChild(box);
+					setTimeout(() => { area.focus(); area.setSelectionRange(area.value.length, area.value.length); }, 0);
+				} else if (hunk.comment) {
+					const note = el('div', 'commenttext', hunk.comment);
+					note.title = L.commentEditTip;
+					note.addEventListener('click', () => { editing = { file: item.file, key: hunk.key }; draft = hunk.comment; render(lastState); });
+					list.appendChild(note);
+				}
 			}
 		}
 	}
 	root.appendChild(list);
+	if (state.comments) {
+		const bar = el('div', 'commentbar');
+		bar.appendChild(el('span', 'commentcount', fmt(state.comments === 1 ? L.commentsOne : L.commentsMany, state.comments)));
+		bar.appendChild(el('span', 'spacer'));
+		bar.appendChild(button('plain', L.commentsClear, L.commentsClearTip, () => send({ type: 'clearComments' })));
+		bar.appendChild(button('primary', L.commentsSend, L.commentsSendTip, () => send({ type: 'sendComments' })));
+		root.appendChild(bar);
+	}
 	root.appendChild(el('div', 'note', state.terminalNote || ''));
 	if (hadFocus) {
 		search.focus();
@@ -276,9 +319,18 @@ button{font:inherit;cursor:pointer;color:inherit;background:transparent;border:0
 .icon{width:20px;height:20px;border-radius:3px;font-size:13px;line-height:1}
 .icon:hover{background:var(--vscode-toolbar-hoverBackground)}
 .icon.keep{color:#56d364}.icon.undo{color:#ff7b72}
+.icon.comment{opacity:.55}.hunk:hover .icon.comment,.icon.comment.has{opacity:1}
 .hunk{padding-left:58px;font-size:12px;color:var(--vscode-descriptionForeground);cursor:pointer}
 .hunk .at{font-family:var(--vscode-editor-font-family)}
 .hunk.none{cursor:default}
+.commenttext{margin:0 12px 4px 58px;padding:4px 8px;border-left:3px solid var(--vscode-focusBorder,#3794ff);background:var(--vscode-textBlockQuote-background,rgba(127,127,127,.1));font-size:12px;white-space:pre-wrap;cursor:pointer}
+.commentbox{margin:2px 12px 6px 58px}
+.commentarea{box-sizing:border-box;width:100%;resize:vertical;font:inherit;font-size:12px;color:var(--vscode-input-foreground);background:var(--vscode-input-background);border:1px solid var(--vscode-input-border,var(--vscode-focusBorder));padding:4px 6px}
+.commentbtns{display:flex;gap:6px;margin-top:4px}
+.commentbtns button,.commentbar button{padding:2px 10px;border-radius:2px}
+button.primary{background:var(--vscode-button-background);color:var(--vscode-button-foreground)}
+button.plain{border:1px solid var(--vscode-button-secondaryBackground,rgba(127,127,127,.4))}
+.commentbar{position:sticky;bottom:0;display:flex;align-items:center;gap:8px;padding:6px 12px;background:var(--vscode-sideBar-background,var(--vscode-editor-background));border-top:1px solid var(--vscode-panel-border,rgba(127,127,127,.35));z-index:2}
 .note{padding:10px 12px 0;color:var(--vscode-descriptionForeground);font-size:11px}
 `;
 
@@ -330,7 +382,20 @@ function labelsJson() {
 		noHunks: t('No pending hunks'),
 		atLine: t('@line {0}'),
 		keepHunkTip: t('Keep this hunk'),
-		undoHunkTip: t('Undo this hunk')
+		undoHunkTip: t('Undo this hunk'),
+		commentTip: t('Comment on this hunk'),
+		commentPlaceholder: t('Write your comment (Ctrl+Enter to save)'),
+		commentSave: t('Save'),
+		commentSaveTip: t('Save the comment (Ctrl+Enter)'),
+		commentCancel: t('Cancel'),
+		commentRemove: t('Remove'),
+		commentEditTip: t('Click to edit the comment'),
+		commentsOne: t('{0} comment'),
+		commentsMany: t('{0} comments'),
+		commentsClear: t('Clear'),
+		commentsClearTip: t('Deletes all the comments without sending them'),
+		commentsSend: t('Send to Claude'),
+		commentsSendTip: t('Copies the comments, and the changes you discarded, to paste in the Claude Code chat')
 	};
 	return JSON.stringify(labels).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 }

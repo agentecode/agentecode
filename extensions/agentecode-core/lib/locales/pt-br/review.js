@@ -8,6 +8,22 @@
 // Textos de review: ingles -> portugues.
 
 module.exports = {
+	// Comentarios nos trechos
+	'Comment on this hunk': 'Comentar este trecho',
+	'Write your comment (Ctrl+Enter to save)': 'Escreva seu comentário (Ctrl+Enter para salvar)',
+	'Save': 'Salvar',
+	'Save the comment (Ctrl+Enter)': 'Salvar o comentário (Ctrl+Enter)',
+	'Cancel': 'Cancelar',
+	'Remove': 'Remover',
+	'Click to edit the comment': 'Clique para editar o comentário',
+	'{0} comment': '{0} comentário',
+	'{0} comments': '{0} comentários',
+	'Clear': 'Limpar',
+	'Deletes all the comments without sending them': 'Apaga todos os comentários sem enviar',
+	'Send to Claude': 'Enviar ao Claude',
+	'Copies the comments, and the changes you discarded, to paste in the Claude Code chat': 'Copia os comentários, e as mudanças que você descartou, para colar no chat do Claude Code',
+	'Comments copied. Paste them in the Claude Code chat (Ctrl+V) and send.': 'Comentários copiados. Cole no chat do Claude Code (Ctrl+V) e envie.',
+
 	// Estados e rotulos
 	'new': 'novo',
 	'deleted': 'excluído',

@@ -2,6 +2,14 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.28 - 12/11/2026
+
+Comments on the hunks in the Agent Changes panel.
+
+- **Comment on a hunk:** each hunk of a modified file has a comment icon right after its line number. Click it, write your note and save with Ctrl+Enter. The comment shows under the hunk and you can edit or remove it.
+- **Send to Claude:** a bar at the bottom of the panel counts your comments. The button copies them, with file, line and code, ready to paste in the Claude Code chat. It also lists the hunks and files you discarded, so Claude does not apply them again.
+- Comments are kept per conversation. Sending clears the comments and the discarded list.
+
 ## v1.0.27 - 11/11/2026
 
 Stack Agent Sessions and Claude Code on top of each other.

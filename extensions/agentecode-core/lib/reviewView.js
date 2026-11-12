@@ -12,6 +12,7 @@ const { computeReview, splitReviewed, fingerprint, listBases } = require('./revi
 const { computeHunks, revertHunkInText, hunksNotInCommit } = require('./reviewHunks');
 const { languageBadge } = require('./reviewPanelLib');
 const { renderPanelHtml } = require('./reviewPanelHtml');
+const { setComment, addRejected, buildPrompt } = require('./reviewComments');
 const { isInsideAny, BACKUP_NAME } = require('./checkpoints');
 const { listSessions, fileHistoryDir } = require('./sessionStore');
 const { applyChange } = require('./rewindPlan');
@@ -29,6 +30,8 @@ const SCM_ID = 'agentecode-review';
 const SCHEME = 'agentecode-review';
 const REVIEWED_KEY = 'agentecode.review.reviewed';
 const KEPT_HUNKS_KEY = 'agentecode.review.keptHunks';
+const COMMENTS_KEY = 'agentecode.review.comments';
+const REJECTED_KEY = 'agentecode.review.rejected';
 const MAX_LENS_CHARS = 1024 * 1024;
 /** Sinais invisiveis no fim do titulo do CodeLens: o editor do AgenteCode desenha esses itens como botoes. */
 const KEEP_MARK = '\u2063';
@@ -168,6 +171,18 @@ function registerReviewView(context) {
 	/** @type {Map<string, string>} copias de antes ja lidas (nunca mudam) */
 	const backupTexts = new Map();
 	const keptMap = () => context.workspaceState.get(KEPT_HUNKS_KEY, {});
+
+	// Comentarios do usuario por trecho e mudancas recusadas, guardados por conversa; vao para o chat do Claude pelo botao da tela
+	const listOf = storageKey => (session ? context.workspaceState.get(storageKey, {})[session.id] ?? [] : []);
+	const saveList = async (storageKey, list) => {
+		if (session) {
+			await context.workspaceState.update(storageKey, { ...context.workspaceState.get(storageKey, {}), [session.id]: list });
+		}
+	};
+	const relativeFile = file => {
+		const root = roots().find(r => isInsideAny(file, [r]));
+		return (root ? path.relative(root, file) : file).replace(/\\/g, '/');
+	};
 
 	const readBackupText = async item => {
 		if (!item.backup) {
@@ -370,7 +385,8 @@ function registerReviewView(context) {
 			if (row.expanded && item.status === 'modified') {
 				try {
 					const text = await fs.promises.readFile(item.file, 'utf8');
-					row.hunks = (await pendingHunks(item, text)).map(h => ({ key: h.key, line: h.modStart + 1, added: h.afterLines.length, removed: h.beforeLines.length }));
+					const comments = listOf(COMMENTS_KEY).filter(c => keyOf(c.file) === key);
+					row.hunks = (await pendingHunks(item, text)).map(h => ({ key: h.key, line: h.modStart + 1, added: h.afterLines.length, removed: h.beforeLines.length, comment: comments.find(c => c.key === h.key)?.text }));
 				} catch {
 					row.hunks = [];
 				}
@@ -394,6 +410,7 @@ function registerReviewView(context) {
 		return {
 			conversation: session ? (session.title ?? session.id) : '',
 			base: baseLabel(base),
+			comments: listOf(COMMENTS_KEY).length,
 			totals: { files: pending.length, added: sum('added'), removed: sum('removed') },
 			hiddenReviewed: hidden,
 			showReviewed,
@@ -487,6 +504,33 @@ function registerReviewView(context) {
 					} else {
 						await restoreFiles(chosen, t('review: {0} file(s)', chosen.length));
 					}
+				}
+				break;
+			}
+			case 'commentHunk':
+				if (item && typeof message.key === 'string') {
+					const hunk = (await pendingHunks(item, await fs.promises.readFile(item.file, 'utf8').catch(() => ''))).find(h => h.key === message.key);
+					if (hunk || !String(message.text ?? '').trim()) {
+						await saveList(COMMENTS_KEY, setComment(listOf(COMMENTS_KEY), { file: item.file, key: message.key, line: hunk ? hunk.modStart + 1 : 1, text: message.text, snippet: hunk ? hunk.afterLines : [] }));
+					}
+					await postPanel();
+				}
+				break;
+			case 'clearComments':
+				await saveList(COMMENTS_KEY, []);
+				await postPanel();
+				break;
+			case 'sendComments': {
+				const comments = listOf(COMMENTS_KEY).map(c => ({ ...c, file: relativeFile(c.file) }));
+				if (comments.length) {
+					const rejected = listOf(REJECTED_KEY).map(r => ({ ...r, file: relativeFile(r.file) }));
+					await vscode.env.clipboard.writeText(buildPrompt(comments, rejected));
+					// o que ja foi enviado sai da lista, para nao ir duas vezes
+					await saveList(COMMENTS_KEY, []);
+					await saveList(REJECTED_KEY, []);
+					await postPanel();
+					await vscode.commands.executeCommand('claude-vscode.focus').then(undefined, () => undefined);
+					void vscode.window.showInformationMessage(t('Comments copied. Paste them in the Claude Code chat (Ctrl+V) and send.'));
 				}
 				break;
 			}
@@ -846,6 +890,9 @@ function registerReviewView(context) {
 			return;
 		}
 		await saveUndoPoint(context, label, changes);
+		for (const change of changes) {
+			await saveList(REJECTED_KEY, addRejected(listOf(REJECTED_KEY), { file: change.file }));
+		}
 		let failed = 0;
 		for (const change of changes) {
 			try {
@@ -966,6 +1013,7 @@ function registerReviewView(context) {
 				lensEmitter.fire();
 				return;
 			}
+			await saveList(REJECTED_KEY, addRejected(listOf(REJECTED_KEY), { file: item.file, line: hunk.modStart + 1, snippet: hunk.afterLines }));
 			// Edicao minima: troca so o pedaco que difere, para preservar cursor, dobras e historico de desfazer (Ctrl+Z)
 			const reverted = revertHunkInText(current, hunk);
 			let start = 0;
