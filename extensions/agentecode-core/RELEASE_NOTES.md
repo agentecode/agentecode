@@ -2,6 +2,15 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.29 - 12/11/2026
+
+Comments get easier to use, and a duplicate file in the changes list is fixed.
+
+- **Comment on a whole file:** every file row in Agent Changes has a comment icon after its tags, so you can also comment on new, modified and deleted files. Hover the icons to see what each one covers.
+- **Send to Claude pastes for you:** the button now puts the comments in the Claude Code chat message box. You read them and press Enter to send.
+- **One comment per hunk:** hunks with identical text in the same file no longer open or share the same comment.
+- **No more duplicated files:** a file that Claude wrote with differently spelled paths (for example, upper and lower case drive letters) showed up twice, once as NEW and once as MODIFIED. It now appears once, compared with its state before the first change. This also makes reverting safer.
+
 ## v1.0.28 - 12/11/2026
 
 Comments on the hunks in the Agent Changes panel.
