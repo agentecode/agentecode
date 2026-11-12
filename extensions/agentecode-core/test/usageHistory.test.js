@@ -95,6 +95,86 @@ describe('Historico de uso e custo', () => {
 		assert.equal(short.totals.week, 25, 'totais fixos nao dependem do periodo escolhido');
 	});
 
+	test('o detalhe do dia separa por tipo de uso, conversa, hora e respostas mais caras', async () => {
+		const entries = await history.loadHistory({ claudeDir });
+		const now = new Date(2026, 9, 21, 18, 0, 0).getTime();
+		const s = history.summarize(entries, { now, days: 7, detailDay: '2026-10-21' });
+		assert.equal(s.detail.date, '2026-10-21');
+		assert.equal(s.detail.usd, 13);
+		assert.equal(s.detail.parts.input + s.detail.parts.output, 13, 'sonnet-5: entrada 2 por milhao, saida 10 por milhao');
+		assert.equal(s.detail.hours[12], 13, 'as respostas foram ao meio-dia');
+		assert.equal(s.detail.sessions.length, 1);
+		assert.equal(s.detail.sessions[0].usd, 13);
+		assert.equal(s.detail.sessions[0].subUsd, 12, 'o subagente fica separado dentro da conversa');
+		assert.equal(s.detail.top[0].usd, 12);
+		assert.equal(history.summarize(entries, { now, days: 7 }).detail.date, '2026-10-21', 'sem dia escolhido vale hoje');
+		assert.equal(history.summarize(entries, { now, days: 7, detailDay: 'lixo' }).detail.date, '2026-10-21');
+	});
+
+	test('a tela mostra o detalhe do dia e as barras levam ao detalhe', async () => {
+		const entries = await history.loadHistory({ claudeDir });
+		const summary = history.summarize(entries, { now: new Date(2026, 9, 21, 18, 0, 0).getTime(), days: 30, detailDay: '2026-10-20' });
+		const html = renderHistoryHtml(summary, { today: '2026-10-21', nonce: 'abc', cspSource: 'vscode-resource:' });
+		assert.ok(html.includes('Details of 20/10'));
+		assert.ok(html.includes('Where the cost comes from'));
+		assert.ok(html.includes('data-day="2026-10-20"'));
+		assert.match(html, /type:.day./);
+	});
+
+	test('conversa apagada continua valendo: o resumo guardado fica marcado como apagado', async () => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'usage-gone-'));
+		try {
+			const proj = path.join(dir, 'projects', 'C--p');
+			fs.mkdirSync(proj, { recursive: true });
+			const file = path.join(proj, 'sessX.jsonl');
+			fs.writeFileSync(file, assistant('g1', noon(2026, 10, 21), { input_tokens: 1_000_000, output_tokens: 0 }) + '\n');
+			const cache = path.join(dir, 'cache.json');
+			const before = await history.loadHistory({ claudeDir: dir, cacheFile: cache });
+			assert.equal(before.length, 1);
+			assert.equal(before[0].gone, false);
+			fs.rmSync(file);
+			const after = await history.loadHistory({ claudeDir: dir, cacheFile: cache });
+			assert.equal(after.length, 1, 'o arquivo sumiu mas o resumo ficou');
+			assert.equal(after[0].gone, true);
+			assert.equal(after[0].data.days['2026-10-21'].usd, 2);
+			const s = history.summarize(after, { now: new Date(2026, 9, 21, 18).getTime(), days: 7 });
+			assert.equal(s.totals.today, 2);
+			assert.deepEqual(s.gone, { sessions: 1, usd: 2 });
+			assert.equal(s.detail.sessions[0].gone, true);
+			// depois de muito tempo apagada, sai do arquivo de totais
+			const much = await history.loadHistory({ claudeDir: dir, cacheFile: cache, now: Date.now() + 800 * 24 * 3600 * 1000 });
+			assert.equal(much.length, 0);
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	test('o resumo compara o periodo com o anterior e junta os limites guardados', async () => {
+		const entries = await history.loadHistory({ claudeDir });
+		const now = new Date(2026, 9, 21, 18, 0, 0).getTime();
+		const s = history.summarize(entries, {
+			now,
+			days: 2,
+			limitSamples: [
+				{ t: new Date(2026, 9, 21, 9).getTime(), s: 5, sr: 1, w: 40, wr: 9 },
+				{ t: new Date(2026, 9, 21, 17).getTime(), s: 20, sr: 1, w: 46, wr: 9 }
+			]
+		});
+		assert.equal(s.compare.current.from, '2026-10-20');
+		assert.equal(s.compare.current.usd, 25);
+		assert.equal(s.compare.current.replies, 3, 'a do dia 20, a do dia 21 e a do subagente; a repetida conta uma vez');
+		assert.equal(s.compare.previous.usd, 0);
+		assert.equal(s.compare.partial, true, 'os dados comecam depois do inicio do periodo anterior');
+		assert.equal(s.limits.days.length, 1);
+		assert.equal(s.limits.days[0].weeklyDelta, 6);
+		assert.equal(s.limits.days[0].fiveMax, 20);
+		assert.equal(s.limits.days[0].perPoint, 13 / 6);
+		const html = renderHistoryHtml(s, { today: '2026-10-21', nonce: 'abc', cspSource: 'vscode-resource:' });
+		assert.ok(html.includes('Compared with the previous 2 days'));
+		assert.ok(html.includes('Subscription limits over time'));
+		assert.ok(html.includes('US$ per point'));
+	});
+
 	test('projectName usa a ultima pasta do cwd ou o nome codificado', () => {
 		assert.equal(history.projectName('x', 'C:\\a\\b\\Projeto\\'), 'Projeto');
 		assert.equal(history.projectName('/home/u/app', '/home/u/app'), 'app');

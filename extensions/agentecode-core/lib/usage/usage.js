@@ -6,10 +6,12 @@
 
 'use strict';
 
+const path = require('path');
 const vscode = require('vscode');
 const core = require('./core');
 const direct = require('./direct');
 const { t, getLanguage } = require('../i18n');
+const { createLimitsLog } = require('../usageLimitsLog');
 
 const CONSENT_ASKED = 'claudeUsageBar.directConsentAsked';
 const METER_ID = 'shivakrishnakokkula.claude-usage-meter';
@@ -53,6 +55,9 @@ function registerUsage(context) {
     return;
   }
   vscode.commands.executeCommand('setContext', ENABLED_CONTEXT, true);
+  // Cada leitura dos limites 5h/7d fica guardada, para comparar semanas na tela de historico
+  const limitsLog = createLimitsLog(path.join(context.globalStorageUri.fsPath, 'usage-limits-log.json'));
+  context.subscriptions.push({ dispose: () => limitsLog.flush() });
   // Itens separados (prioridade maior = mais à esquerda): só assim cada trecho pode ter cor própria.
   // A faixa de prioridade é alta e exclusiva para que itens de outras extensões não se encaixem no meio.
   const make = (name, priority) => {
@@ -153,6 +158,7 @@ function registerUsage(context) {
         opts.directError = shared.lastError;
       }
       const limits = core.pickLimits(meterLimits, directLimits);
+      limitsLog.record(limits, now);
 
       if (!opts.fetchLimitsDirectly && opts.meterActive && opts.refreshLimits && core.shouldNudge(limits, now, lastNudge)) {
         lastNudge = now;

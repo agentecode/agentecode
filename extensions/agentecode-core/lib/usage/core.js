@@ -62,6 +62,30 @@ const messageCost = (model, u) => {
   );
 };
 
+// Mesmo calculo de messageCost, separado por tipo de uso: entrada nova, gravacao de cache, leitura de cache e saida.
+const messageCostParts = (model, u) => {
+  const p = priceFor(model);
+  if (!p) return null;
+  const input = u.input_tokens || 0;
+  const read = u.cache_read_input_tokens || 0;
+  const written = u.cache_creation_input_tokens || 0;
+  let w5 = written;
+  let w1h = 0;
+  if (u.cache_creation) {
+    w5 = u.cache_creation.ephemeral_5m_input_tokens || 0;
+    w1h = u.cache_creation.ephemeral_1h_input_tokens || 0;
+    if (w5 + w1h === 0) w5 = written;
+  }
+  const card = p.long && input + read + written > 100_000 ? { ...p, ...p.long, cr: undefined } : p;
+  const crPrice = card.cr ?? card.in * 0.1;
+  return {
+    input: (input * card.in) / 1e6,
+    cacheWrite: (w5 * card.in * 1.25 + w1h * card.in * 2) / 1e6,
+    cacheRead: (read * crPrice) / 1e6,
+    output: ((u.output_tokens || 0) * card.out) / 1e6,
+  };
+};
+
 const claudeDir = () => process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
 
 const encodeProject = p => p.replace(/[^a-zA-Z0-9]/g, '-');
@@ -641,6 +665,7 @@ module.exports = {
   renderPanel,
   readLimits,
   messageCost,
+  messageCostParts,
   contextWindow,
   formatTokens,
   formatElapsed,

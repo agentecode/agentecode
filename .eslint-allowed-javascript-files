@@ -205,8 +205,10 @@ extensions/agentecode-core/lib/sync/syncController.js
 extensions/agentecode-core/lib/sync/index.js
 extensions/agentecode-core/lib/sync/claudeConfig.js
 extensions/agentecode-core/lib/usageHistory.js
+extensions/agentecode-core/lib/usageLimitsLog.js
 extensions/agentecode-core/lib/usageHistoryView.js
 extensions/agentecode-core/test/usageHistory.test.js
+extensions/agentecode-core/test/usageLimitsLog.test.js
 extensions/agentecode-core/lib/review.js
 extensions/agentecode-core/lib/reviewView.js
 extensions/agentecode-core/test/review.test.js
