@@ -2,6 +2,14 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.31 - 16/11/2026
+
+The IDE can now tell you when Claude finishes a task.
+
+- **Bell in the status bar:** click it to turn the notification on or off. Right-click it for a menu with the three choices (off, flash the taskbar, bring the window to the front) and their shortcuts. Ctrl+Alt+Shift+B turns it on or off and Ctrl+Alt+Shift+N opens a list. It is off by default.
+- **How it works:** run the command Install Claude Done Hook once. It adds a Stop hook to the Claude Code settings (asking first and keeping a backup of the file), which tells the IDE every time Claude finishes a response. The IDE only reacts when it is not in focus, and only the window that has the project that finished. Remove Claude Done Hook undoes it. The hook needs Node.js.
+- **Windows:** bringing the window to the front now works even when you are using another app. Before, Windows only highlighted the taskbar icon.
+
 ## v1.0.30 - 12/11/2026
 
 A much more detailed Usage history, and it no longer forgets deleted conversations.
