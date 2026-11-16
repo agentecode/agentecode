@@ -117,6 +117,7 @@ registerSingleton(IUserDataInitializationService, new SyncDescriptor(UserDataIni
 
 // Onboarding
 import './contrib/onboarding/electron-browser/onboardingTryout.contribution.js';
+import './contrib/agentecodeLayout/electron-browser/agentecodeFocusWhenDone.contribution.js';
 
 // Logs
 import './contrib/logs/electron-browser/logs.contribution.js';

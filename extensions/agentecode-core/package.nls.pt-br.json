@@ -26,6 +26,8 @@
 	"command.review.undoHunkAtCursor.title": "Desfazer o trecho alterado pelo agente sob o cursor",
 	"command.review.chooseBase.title": "Comparar alterações com o estado de antes de um turno",
 	"command.usage.history.title": "Histórico de uso e custo",
+	"command.focusWhenDone.installHook.title": "Instalar hook de término do Claude",
+	"command.focusWhenDone.removeHook.title": "Remover hook de término do Claude",
 	"command.usageBar.refresh.title": "Claude Usage: Atualizar agora",
 	"command.usageBar.toggle.title": "Claude Usage: Mostrar/ocultar barra",
 	"command.usageBar.openPanel.title": "Claude Usage: Abrir/fechar painel de uso",

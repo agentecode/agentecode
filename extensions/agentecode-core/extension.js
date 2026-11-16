@@ -12,6 +12,7 @@ const { registerUsage } = require('./lib/usage/usage');
 const { registerSync } = require('./lib/sync/index');
 const { registerUsageHistory } = require('./lib/usageHistoryView');
 const { registerReviewView } = require('./lib/reviewView');
+const { registerDoneHook } = require('./lib/doneHook');
 const { resolveLanguage, setLanguage } = require('./lib/i18n');
 
 /** @param {import('vscode').ExtensionContext} context */
@@ -34,6 +35,7 @@ function activate(context) {
 	registerSync(context);
 	registerUsageHistory(context);
 	registerReviewView(context);
+	registerDoneHook(context);
 }
 
 function deactivate() { }

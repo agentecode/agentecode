@@ -8,6 +8,17 @@
 // Textos de misc: ingles -> portugues.
 
 module.exports = {
+	// lib/doneHook.js
+	'Install': 'Instalar',
+	'Add a Stop hook to the Claude Code settings ({0})? It runs a tiny script when Claude finishes a response, which tells this IDE so it can come to the front. A backup of the file is kept next to it.': 'Adicionar um hook Stop nas configurações do Claude Code ({0})? Ele executa um pequeno script quando o Claude termina uma resposta, avisando esta IDE para que ela possa vir para a frente. Uma cópia de segurança do arquivo fica ao lado dele.',
+	'Node.js was not found on this computer; the hook needs it to run.': 'O Node.js não foi encontrado neste computador; o hook precisa dele para funcionar.',
+	'The hook was already installed.': 'O hook já estava instalado.',
+	'Hook installed. Start a new Claude Code conversation (or restart it) for it to take effect.': 'Hook instalado. Inicie uma nova conversa do Claude Code (ou reinicie-o) para valer.',
+	'Choose what happens': 'Escolher o que acontece',
+	'The option to react when Claude finishes is off. Choose what the IDE should do.': 'A opção de reagir quando o Claude termina está desligada. Escolha o que a IDE deve fazer.',
+	'Could not change the Claude Code settings: {0}': 'Não foi possível alterar as configurações do Claude Code: {0}',
+	'Hook removed.': 'Hook removido.',
+	'The hook was not installed.': 'O hook não estava instalado.',
 	// lib/sessionsView.js
 	'Session: {0}': 'Sessão: {0}',
 	'Project: {0}': 'Projeto: {0}',

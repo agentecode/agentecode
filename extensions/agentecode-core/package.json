@@ -183,6 +183,16 @@
         "icon": "$(git-compare)"
       },
       {
+        "command": "agentecode.focusWhenDone.installHook",
+        "title": "%command.focusWhenDone.installHook.title%",
+        "category": "AgenteCode"
+      },
+      {
+        "command": "agentecode.focusWhenDone.removeHook",
+        "title": "%command.focusWhenDone.removeHook.title%",
+        "category": "AgenteCode"
+      },
+      {
         "command": "agentecode.usage.history",
         "title": "%command.usage.history.title%",
         "category": "AgenteCode",

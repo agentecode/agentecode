@@ -428,6 +428,16 @@ export abstract class BaseWindow extends Disposable implements IBaseWindow {
 						this.win?.show();
 					}
 					electron.app.focus({ steal: true });
+				} else if (isWindows) {
+					// O Windows bloqueia que um aplicativo em segundo plano tome o foco (so o icone pisca). Ficar "sempre no topo"
+					// por um instante leva a janela para a frente sem depender dessa permissao.
+					const win = this.win;
+					if (win && !win.isDestroyed() && !win.isAlwaysOnTop()) {
+						win.setAlwaysOnTop(true);
+						this.doFocusWindow();
+						win.setAlwaysOnTop(false);
+						break;
+					}
 				}
 				this.doFocusWindow();
 				break;

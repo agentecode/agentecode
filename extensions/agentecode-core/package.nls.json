@@ -26,6 +26,8 @@
 	"command.review.undoHunkAtCursor.title": "Undo the Agent-Changed Hunk Under the Cursor",
 	"command.review.chooseBase.title": "Compare Changes with the State Before a Turn",
 	"command.usage.history.title": "Usage and Cost History",
+	"command.focusWhenDone.installHook.title": "Install Claude Done Hook",
+	"command.focusWhenDone.removeHook.title": "Remove Claude Done Hook",
 	"command.usageBar.refresh.title": "Claude Usage: Refresh Now",
 	"command.usageBar.toggle.title": "Claude Usage: Show/Hide Bar",
 	"command.usageBar.openPanel.title": "Claude Usage: Open/Close Usage Panel",
