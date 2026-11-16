@@ -191,10 +191,11 @@ function registerDoneHook(context) {
 	const vscode = require('vscode');
 	const { t } = require('./i18n');
 	context.subscriptions.push(
-		vscode.commands.registerCommand('agentecode.focusWhenDone.installHook', async () => {
+		vscode.commands.registerCommand('agentecode.focusWhenDone.installHook', async (alreadyAsked) => {
 			const settingsFile = claudeSettingsPath();
 			const confirm = t('Install');
-			const choice = await vscode.window.showInformationMessage(
+			// quando vem do aviso da IDE, o usuario ja concordou ali
+			const choice = alreadyAsked === true ? confirm : await vscode.window.showInformationMessage(
 				t('Add a Stop hook to the Claude Code settings ({0})? It runs a tiny script when Claude finishes a response, which tells this IDE so it can come to the front. A backup of the file is kept next to it.', settingsFile),
 				{ modal: true },
 				confirm

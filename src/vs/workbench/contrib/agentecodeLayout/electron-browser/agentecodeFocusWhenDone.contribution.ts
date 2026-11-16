@@ -23,6 +23,8 @@ import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '.
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import Severity from '../../../../base/common/severity.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { FocusMode } from '../../../../platform/native/common/native.js';
@@ -44,6 +46,8 @@ const MODE_KEY = 'agentecode.focusWhenDone';
 const LANGUAGE_KEY = 'agentecode.language';
 const COMMAND_CHOOSE = 'agentecode.focusWhenDone.choose';
 const COMMAND_TOGGLE = 'agentecode.focusWhenDone.toggle';
+const COMMAND_INSTALL_HOOK = 'agentecode.focusWhenDone.installHook';
+const HOOK_MARKER = 'claude-done.js';
 const ENTRY_ID = 'status.agentecode.focusWhenDone';
 const LIST_ENTRY_ID = 'status.agentecode.focusWhenDone.options';
 const SIGNAL_DIR = '.agentecode';
@@ -113,6 +117,8 @@ class AgenteCodeFocusWhenDoneContribution extends Disposable implements IWorkben
 	private readonly signalResource: URI;
 	private lastSeen = Date.now();
 	private polling = false;
+	private promptedHook = false;
+	private readonly claudeSettingsResource: URI;
 
 	constructor(
 		@IStatusbarService private readonly statusbarService: IStatusbarService,
@@ -124,15 +130,25 @@ class AgenteCodeFocusWhenDoneContribution extends Disposable implements IWorkben
 		@IContextMenuService private readonly contextMenuService: IContextMenuService,
 		@IKeybindingService private readonly keybindingService: IKeybindingService,
 		@ICommandService private readonly commandService: ICommandService,
+		@INotificationService private readonly notificationService: INotificationService,
 	) {
 		super();
 
 		this.signalResource = URI.joinPath(environmentService.userHome, SIGNAL_DIR, SIGNAL_FILE);
+		this.claudeSettingsResource = URI.joinPath(environmentService.userHome, '.claude', 'settings.json');
 
 		this.updateEntry();
+		void this.checkHook();
 		this._register(this.configurationService.onDidChangeConfiguration(event => {
 			if (event.affectsConfiguration(MODE_KEY) || event.affectsConfiguration(LANGUAGE_KEY)) {
 				this.updateEntry();
+			}
+			if (event.affectsConfiguration(MODE_KEY)) {
+				if (readMode(this.configurationService) === 'off') {
+					this.promptedHook = false;
+				} else {
+					void this.checkHook();
+				}
 			}
 		}));
 
@@ -181,6 +197,32 @@ class AgenteCodeFocusWhenDoneContribution extends Disposable implements IWorkben
 		} else {
 			this.listEntry.value = this.statusbarService.addEntry(listProps, LIST_ENTRY_ID, StatusbarAlignment.RIGHT, 97);
 		}
+	}
+
+	private async hookInstalled(): Promise<boolean> {
+		try {
+			return (await this.fileService.readFile(this.claudeSettingsResource)).value.toString().includes(HOOK_MARKER);
+		} catch {
+			return false;
+		}
+	}
+
+	/** Com a opção ligada e sem o hook do Claude Code, o aviso nunca chegaria: oferece instalar. */
+	private async checkHook(): Promise<void> {
+		if (this.promptedHook || readMode(this.configurationService) === 'off' || await this.hookInstalled()) {
+			return;
+		}
+		this.promptedHook = true;
+		this.notificationService.prompt(
+			Severity.Info,
+			// allow-any-unicode-next-line
+			text(this.configurationService, { en: 'To be notified when Claude finishes, Claude Code has to tell this IDE. Install the notice now? It adds a Stop hook to the Claude Code settings and keeps a backup of the file.', pt: 'Para avisar quando o Claude terminar, o Claude Code precisa avisar esta IDE. Instalar o aviso agora? Ele adiciona um hook Stop nas configurações do Claude Code e guarda uma cópia de segurança do arquivo.' }),
+			[{
+				label: text(this.configurationService, { en: 'Install Now', pt: 'Instalar agora' }),
+				run: () => this.commandService.executeCommand(COMMAND_INSTALL_HOOK, true)
+			}],
+			{ neverShowAgain: { id: 'agentecode.focusWhenDone.hookPrompt' } }
+		);
 	}
 
 	private showMenu(e: MouseEvent): void {
