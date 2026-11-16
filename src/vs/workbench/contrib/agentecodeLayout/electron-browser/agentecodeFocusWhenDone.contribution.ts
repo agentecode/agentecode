@@ -221,7 +221,7 @@ class AgenteCodeFocusWhenDoneContribution extends Disposable implements IWorkben
 				label: text(this.configurationService, { en: 'Install Now', pt: 'Instalar agora' }),
 				run: () => this.commandService.executeCommand(COMMAND_INSTALL_HOOK, true)
 			}],
-			{ neverShowAgain: { id: 'agentecode.focusWhenDone.hookPrompt' } }
+			{ neverShowAgain: { id: 'agentecode.focusWhenDone.hookPrompt', isSecondary: true } }
 		);
 	}
 
