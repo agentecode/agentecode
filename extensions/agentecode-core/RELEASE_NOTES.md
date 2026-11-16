@@ -2,6 +2,12 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.32 - 16/11/2026
+
+Turning on the Claude-finished notification is now one click.
+
+- **No hidden command:** when the bell in the status bar is on and the Claude Code hook is not installed yet, the IDE shows a notice with an Install Now button. It appears when you turn the bell on and when the IDE opens, and you can choose not to see it again. The Install Claude Done Hook command is still there if you prefer the palette.
+
 ## v1.0.31 - 16/11/2026
 
 The IDE can now tell you when Claude finishes a task.
