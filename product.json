@@ -15,6 +15,7 @@
 		"workbench.welcomePage.experimentalOnboarding": false,
 		"chat.commandCenter.enabled": false,
 		"extensions.verifySignature": false,
+		"git.openRepositoryInParentFolders": "always",
 		"csharp-dev-tools.semanticColors.theme": "off",
 		"editor.semanticTokenColorCustomizations": {
 			"rules": {
