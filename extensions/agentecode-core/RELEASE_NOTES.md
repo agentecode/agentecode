@@ -2,6 +2,12 @@
 
 Uma seção por versão, da mais nova para a mais antiga. O título de cada seção precisa ter o formato `## vX.Y.Z - data`.
 
+## v1.0.33 - 24/11/2026
+
+The branch name now shows up when you open a subfolder of a Git repository.
+
+- **Repository in a parent folder opens by default:** if you open a folder inside a repository (for example the `src` folder of a solution), the IDE now opens that repository on its own, so the branch appears in the status bar and Source Control works. Before, it only asked, and choosing Never left the branch hidden. You can change this with the `git.openRepositoryInParentFolders` setting.
+
 ## v1.0.32 - 16/11/2026
 
 Turning on the Claude-finished notification is now one click.
